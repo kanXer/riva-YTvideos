@@ -1,0 +1,3529 @@
+package com.nexusdigital.rivavideo.ui
+
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Comment
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.ClosedCaptionOff
+import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Subscriptions
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
+import com.nexusdigital.rivavideo.data.AudioLanguageTrack
+import com.nexusdigital.rivavideo.data.ChannelDetails
+import com.nexusdigital.rivavideo.data.OfflineVideoItem
+import com.nexusdigital.rivavideo.data.RegionPreference
+import com.nexusdigital.rivavideo.data.ShortItem
+import com.nexusdigital.rivavideo.data.SubtitleTrack
+import com.nexusdigital.rivavideo.data.VideoItem
+import com.nexusdigital.rivavideo.data.VideoQualityTrack
+import com.nexusdigital.rivavideo.data.WatchHistoryItem
+import com.nexusdigital.rivavideo.data.formatDuration
+import com.nexusdigital.rivavideo.video.VideoUiState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
+
+fun Context.findActivity(): Activity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is Activity) return currentContext
+        currentContext = currentContext.baseContext
+    }
+    return null
+}
+
+/**
+ * ROOT APP UI:
+ * - YouTube Home Feed: Full-width video cards with 16:9 previews, channel avatars, view count, publish time.
+ * - YouTube Watch Screen: 16:9 Player on top (auto-rotates to landscape on fullscreen), Subtitle / CC toggle,
+ *   Always-visible Audio Language switcher, HD Quality selector, Subscribe button, Like/Share, and Up Next video list.
+ */
+@Composable
+fun RivaVideoApp(viewModel: RivaVideoViewModel) {
+    val dark = isSystemInDarkTheme()
+    val feed by viewModel.feed.collectAsStateWithLifecycle()
+    val feedLoading by viewModel.feedLoading.collectAsStateWithLifecycle()
+    val feedError by viewModel.feedError.collectAsStateWithLifecycle()
+    val activeCategory by viewModel.activeCategory.collectAsStateWithLifecycle()
+    val availableCategories by viewModel.availableCategories.collectAsStateWithLifecycle()
+    val regionPreference by viewModel.regionPreference.collectAsStateWithLifecycle()
+    val showRegionPicker by viewModel.showRegionPicker.collectAsStateWithLifecycle()
+    val searchText by viewModel.searchText.collectAsStateWithLifecycle()
+    val watchIndex by viewModel.watchIndex.collectAsStateWithLifecycle()
+    val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
+    val shorts by viewModel.shorts.collectAsStateWithLifecycle()
+    val shortsLoading by viewModel.shortsLoading.collectAsStateWithLifecycle()
+    val activeChannel by viewModel.activeChannel.collectAsStateWithLifecycle()
+    val channelLoading by viewModel.channelLoading.collectAsStateWithLifecycle()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(RivaL.bg(dark)),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                when (currentTab) {
+                    RivaVideoViewModel.AppTab.HOME,
+                    RivaVideoViewModel.AppTab.DUBBED -> {
+                        YouTubeHomeScreen(
+                            dark = dark,
+                            feed = feed,
+                            loading = feedLoading,
+                            error = feedError,
+                            activeCategory = activeCategory,
+                            categories = availableCategories,
+                            regionPreference = regionPreference,
+                            onOpenRegionPicker = viewModel::openRegionPicker,
+                            searchText = searchText,
+                            onCategory = viewModel::loadCategory,
+                            onSearchText = viewModel::setSearchText,
+                            onSearchSubmit = viewModel::submitSearch,
+                            onVideoClick = viewModel::openWatch,
+                            onChannelClick = { id, name -> viewModel.openChannel(id, name) },
+                        )
+                    }
+                    RivaVideoViewModel.AppTab.SHORTS -> {
+                        YouTubeShortsScreen(
+                            dark = dark,
+                            viewModel = viewModel,
+                            shorts = shorts,
+                            loading = shortsLoading,
+                            onChannelClick = { id, name -> viewModel.openChannel(id, name) },
+                        )
+                    }
+                    RivaVideoViewModel.AppTab.PROFILE -> {
+                        YouTubeProfileScreen(
+                            dark = dark,
+                            viewModel = viewModel,
+                        )
+                    }
+                }
+            }
+
+            // YouTube Bottom Navigation Bar (Hidden when watching a video or viewing a channel)
+            if (watchIndex == null && activeChannel == null) {
+                YouTubeBottomNavBar(
+                    currentTab = currentTab,
+                    onSelectTab = viewModel::selectTab,
+                    dark = dark,
+                )
+            }
+        }
+
+        // Region / Content Preference Dialog (First launch or manual switch)
+        if (showRegionPicker) {
+            RegionPreferenceDialog(
+                dark = dark,
+                currentRegion = regionPreference,
+                onSelectRegion = viewModel::selectRegionPreference,
+                onDismiss = viewModel::closeRegionPicker,
+            )
+        }
+
+        // YouTube Channel Screen Overlay
+        activeChannel?.let { channel ->
+            YouTubeChannelScreen(
+                channel = channel,
+                loading = channelLoading,
+                dark = dark,
+                onClose = viewModel::closeChannel,
+                onToggleSubscribe = viewModel::toggleChannelSubscribe,
+                onVideoClick = viewModel::openVideoFromChannel,
+            )
+        }
+
+        // YouTube Watch Screen Overlay
+        watchIndex?.let { index ->
+            if (feed.isNotEmpty()) {
+                val safeIndex = index.coerceIn(0, feed.lastIndex)
+                YouTubeWatchScreen(
+                    dark = dark,
+                    viewModel = viewModel,
+                    feed = feed,
+                    currentIndex = safeIndex,
+                    onClose = viewModel::closeWatch,
+                    onSelectRelated = { newIndex ->
+                        viewModel.openWatch(newIndex)
+                    },
+                    onChannelClick = { id, name -> viewModel.openChannel(id, name) },
+                )
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE HOME SCREEN FEED ----------------
+
+@Composable
+private fun YouTubeHomeScreen(
+    dark: Boolean,
+    feed: List<VideoItem>,
+    loading: Boolean,
+    error: String?,
+    activeCategory: RivaVideoViewModel.Category,
+    categories: List<RivaVideoViewModel.Category>,
+    regionPreference: RegionPreference,
+    onOpenRegionPicker: () -> Unit,
+    searchText: String,
+    onCategory: (RivaVideoViewModel.Category) -> Unit,
+    onSearchText: (String) -> Unit,
+    onSearchSubmit: () -> Unit,
+    onVideoClick: (Int) -> Unit,
+    onChannelClick: (String?, String?) -> Unit,
+) {
+    var searchOpen by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+    ) {
+        // YouTube App Top Bar
+        if (searchOpen) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { searchOpen = false }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = RivaL.text(dark),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(RivaL.pill(dark)),
+                ) {
+                    OutlinedTextField(
+                        value = searchText,
+                        onValueChange = onSearchText,
+                        placeholder = {
+                            Text(
+                                "Search YouTube…",
+                                color = RivaL.textDim(dark),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchText.isNotBlank()) {
+                                IconButton(onClick = { onSearchText("") }) {
+                                    Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = RivaL.textDim(dark))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            cursorColor = RivaL.red(dark),
+                            focusedTextColor = RivaL.text(dark),
+                            unfocusedTextColor = RivaL.text(dark),
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                IconButton(onClick = {
+                    onSearchSubmit()
+                    searchOpen = false
+                }) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = "Search",
+                        tint = RivaL.text(dark),
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // YouTube Red Logo Icon
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(RivaL.red(dark))
+                        .padding(horizontal = 7.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "RivaVideo",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = RivaL.text(dark),
+                    letterSpacing = (-0.5).sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                // Quick Region Switcher Pill (India flag, etc.)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(RivaL.pill(dark))
+                        .clickable(onClick = onOpenRegionPicker)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        text = regionPreference.flag,
+                        fontSize = 14.sp,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = true }) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = "Search",
+                        tint = RivaL.text(dark),
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+            }
+        }
+
+        // Horizontal Category Filter Pills
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(categories) { category ->
+                val selected = category.label == activeCategory.label
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (selected) RivaL.text(dark) else RivaL.pill(dark),
+                        )
+                        .clickable { onCategory(category) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = category.label,
+                        color = if (selected) RivaL.bg(dark) else RivaL.text(dark),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // Video Feed
+        when {
+            loading -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = RivaL.red(dark), strokeWidth = 3.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = "Loading YouTube feed…",
+                        color = RivaL.textDim(dark),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            error != null -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text(
+                        text = error,
+                        color = RivaL.textDim(dark),
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { onCategory(activeCategory) },
+                        colors = ButtonDefaults.buttonColors(containerColor = RivaL.red(dark)),
+                        shape = RoundedCornerShape(20.dp),
+                    ) {
+                        Icon(Icons.Filled.Refresh, contentDescription = null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Retry")
+                    }
+                }
+            }
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp),
+            ) {
+                itemsIndexed(feed, key = { _, item -> item.videoId }) { index, item ->
+                    YouTubeVideoCard(
+                        item = item,
+                        dark = dark,
+                        onClick = { onVideoClick(index) },
+                        onChannelClick = onChannelClick,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YouTubeVideoCard(
+    item: VideoItem,
+    dark: Boolean,
+    onClick: () -> Unit,
+    onChannelClick: ((String?, String?) -> Unit)? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(bottom = 18.dp),
+    ) {
+        // 16:9 Thumbnail Preview
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(RivaL.panelMid(dark)),
+        ) {
+            AsyncImage(
+                model = item.thumbnailUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // Duration Pill (bottom-right)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xE6000000))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    text = formatDuration(item.durationMs),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = FontFamily.SansSerif,
+                )
+            }
+        }
+
+        // Details Row below Thumbnail
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            val avatarClickModifier = if (onChannelClick != null) {
+                Modifier.clickable { onChannelClick(item.channelId, item.channel) }
+            } else Modifier
+
+            // Circular Channel Avatar
+            if (!item.channelThumbnailUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = item.channelThumbnailUrl,
+                    contentDescription = item.channel,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .then(avatarClickModifier),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(RivaL.pill(dark))
+                        .then(avatarClickModifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = item.channel.firstOrNull()?.uppercase() ?: "Y",
+                        color = RivaL.text(dark),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // Title & Channel / Views metadata
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    color = RivaL.text(dark),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 20.sp,
+                )
+                Spacer(Modifier.height(3.dp))
+                val views = item.viewCount ?: "1.2M views"
+                val time = item.publishedTime ?: "recently"
+                Text(
+                    text = "${item.channel} • $views • $time",
+                    color = RivaL.textDim(dark),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = avatarClickModifier,
+                )
+            }
+
+            // 3-dots Menu
+            IconButton(onClick = {}) {
+                Icon(
+                    Icons.Filled.MoreVert,
+                    contentDescription = "Options",
+                    tint = RivaL.textDim(dark),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE WATCH SCREEN (WITH AUTO SCREEN ROTATION ON FULLSCREEN) ----------------
+
+@Composable
+private fun YouTubeWatchScreen(
+    dark: Boolean,
+    viewModel: RivaVideoViewModel,
+    feed: List<VideoItem>,
+    currentIndex: Int,
+    onClose: () -> Unit,
+    onSelectRelated: (Int) -> Unit,
+    onChannelClick: (String?, String?) -> Unit,
+) {
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val isResolving by viewModel.isResolving.collectAsStateWithLifecycle()
+
+    var isFullscreen by remember { mutableStateOf(false) }
+    var showSubtitleDialog by remember { mutableStateOf(false) }
+    var showAudioLanguageDialog by remember { mutableStateOf(false) }
+    var showQualityDialog by remember { mutableStateOf(false) }
+
+    val currentVideo = feed.getOrNull(currentIndex)
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+
+    // Intercept Back button: Fullscreen mode -> exit fullscreen; Portrait mode -> close watch screen
+    BackHandler(enabled = isFullscreen) {
+        isFullscreen = false
+    }
+    BackHandler(enabled = !isFullscreen) {
+        onClose()
+    }
+
+    // Auto-rotate screen to Landscape when Fullscreen is ON, and Portrait when OFF
+    DisposableEffect(isFullscreen) {
+        val window = activity?.window
+        val insetsController = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+
+        if (isFullscreen) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            insetsController?.hide(WindowInsetsCompat.Type.systemBars())
+            insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
+
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    // Load video stream when current index changes
+    LaunchedEffect(currentIndex) {
+        viewModel.loadForPage(currentIndex)
+    }
+
+    // Subtitle Language Dialog
+    if (showSubtitleDialog) {
+        SubtitleLanguageDialog(
+            dark = dark,
+            availableSubtitles = ui.availableSubtitles,
+            selectedLang = ui.selectedSubtitleLang,
+            isSubtitlesEnabled = ui.isSubtitlesEnabled,
+            onSelect = { sub ->
+                viewModel.selectSubtitleLanguage(sub)
+                showSubtitleDialog = false
+            },
+            onDismiss = { showSubtitleDialog = false },
+        )
+    }
+
+    // Audio Language Dialog
+    if (showAudioLanguageDialog) {
+        AudioLanguageDialog(
+            dark = dark,
+            availableTracks = ui.availableAudioLanguages,
+            selectedName = ui.selectedAudioLanguage,
+            onSelect = { track ->
+                viewModel.selectAudioLanguage(track)
+                showAudioLanguageDialog = false
+            },
+            onDismiss = { showAudioLanguageDialog = false },
+            onExploreMultiAudio = {
+                showAudioLanguageDialog = false
+                viewModel.selectTab(RivaVideoViewModel.AppTab.DUBBED)
+                onClose()
+            },
+        )
+    }
+
+    // Video Quality Selection Dialog (HD 1080p, 720p, 480p, 360p)
+    if (showQualityDialog) {
+        VideoQualityDialog(
+            dark = dark,
+            availableQualities = ui.availableQualities,
+            selectedQuality = ui.qualityLabel,
+            onSelect = { quality ->
+                viewModel.switchQuality(quality)
+                showQualityDialog = false
+            },
+            onDismiss = { showQualityDialog = false },
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(RivaL.bg(dark)),
+    ) {
+        if (isFullscreen) {
+            // FULLSCREEN VIDEO VIEW (SCREEN ROTATED TO LANDSCAPE)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            useController = false
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
+                    },
+                    update = { view ->
+                        val player = viewModel.attachedPlayer()
+                        if (view.player !== player) view.player = player
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                YouTubePlayerOverlay(
+                    dark = dark,
+                    ui = ui,
+                    progressFlow = viewModel.progress,
+                    isFullscreen = true,
+                    onTogglePlay = viewModel::togglePlayPause,
+                    onSeek = viewModel::seekTo,
+                    onSeekRelative = viewModel::seekRelative,
+                    onClose = { isFullscreen = false },
+                    onToggleFullscreen = { isFullscreen = false },
+                    onToggleSubtitles = viewModel::toggleSubtitles,
+                    onOpenSubtitleDialog = { showSubtitleDialog = true },
+                    onOpenAudioDialog = { showAudioLanguageDialog = true },
+                    onOpenQualityDialog = { showQualityDialog = true },
+                    onSelectSpeed = viewModel::setPlaybackSpeed,
+                    onRetry = { viewModel.retryCurrentVideo(currentIndex) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        } else {
+            // STANDARD YOUTUBE WATCH SCREEN (16:9 Player on top + details + scrollable related list)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
+            ) {
+                // Top 16:9 Sticky Player
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black),
+                ) {
+                    val showVideo = currentVideo != null && ui.videoId == currentVideo.videoId
+                    if (showVideo) {
+                        AndroidView(
+                            factory = { ctx ->
+                                PlayerView(ctx).apply {
+                                    useController = false
+                                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                }
+                            },
+                            update = { view ->
+                                val player = viewModel.attachedPlayer()
+                                if (view.player !== player) view.player = player
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        // Poster image while resolving
+                        AsyncImage(
+                            model = currentVideo?.thumbnailUrl,
+                            contentDescription = currentVideo?.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    if (isResolving || (ui.isBuffering && showVideo)) {
+                        CircularProgressIndicator(
+                            color = RivaL.red(dark),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(40.dp),
+                            strokeWidth = 3.dp,
+                        )
+                    }
+
+                    // YouTube Player Overlay Controls
+                    YouTubePlayerOverlay(
+                        dark = dark,
+                        ui = ui,
+                        progressFlow = viewModel.progress,
+                        isFullscreen = false,
+                        onTogglePlay = viewModel::togglePlayPause,
+                        onSeek = viewModel::seekTo,
+                        onSeekRelative = viewModel::seekRelative,
+                        onClose = onClose,
+                        onToggleFullscreen = { isFullscreen = true },
+                        onToggleSubtitles = viewModel::toggleSubtitles,
+                        onOpenSubtitleDialog = { showSubtitleDialog = true },
+                        onOpenAudioDialog = { showAudioLanguageDialog = true },
+                        onOpenQualityDialog = { showQualityDialog = true },
+                        onSelectSpeed = viewModel::setPlaybackSpeed,
+                        onRetry = { viewModel.retryCurrentVideo(currentIndex) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // Scrollable Content Beneath Player (LazyColumn for buttery smooth 60/120 FPS recycling)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 32.dp),
+                ) {
+                    currentVideo?.let { video ->
+                        item(key = "title") {
+                            Text(
+                                text = video.title,
+                                color = RivaL.text(dark),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp),
+                            )
+                        }
+
+                        item(key = "metadata") {
+                            Text(
+                                text = "${video.viewCount ?: "1.4M views"} • ${video.publishedTime ?: "2 weeks ago"}",
+                                color = RivaL.textDim(dark),
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
+                            )
+                        }
+
+                        item(key = "channel") {
+                            Spacer(Modifier.height(8.dp))
+                            // Channel Info & Subscribe Button
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onChannelClick(video.channelId, video.channel) },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (!video.channelThumbnailUrl.isNullOrEmpty()) {
+                                        AsyncImage(
+                                            model = video.channelThumbnailUrl,
+                                            contentDescription = video.channel,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(CircleShape),
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(CircleShape)
+                                                .background(RivaL.pill(dark)),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = video.channel.firstOrNull()?.uppercase() ?: "Y",
+                                                color = RivaL.text(dark),
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.width(10.dp))
+
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = video.channel,
+                                                color = RivaL.text(dark),
+                                                fontWeight = FontWeight.SemiBold,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Filled.CheckCircle,
+                                                contentDescription = "Verified",
+                                                tint = RivaL.textDim(dark),
+                                                modifier = Modifier.size(14.dp),
+                                            )
+                                        }
+                                        Text(
+                                            text = "1.5M subscribers",
+                                            color = RivaL.textDim(dark),
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                }
+
+                                // Subscribe Button (YouTube Pill Style)
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (ui.isSubscribed) RivaL.pill(dark) else RivaL.text(dark),
+                                    modifier = Modifier.clickable { viewModel.toggleSubscribe() },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        if (ui.isSubscribed) {
+                                            Icon(
+                                                Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = RivaL.text(dark),
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                        }
+                                        Text(
+                                            text = if (ui.isSubscribed) "Subscribed" else "Subscribe",
+                                            color = if (ui.isSubscribed) RivaL.text(dark) else RivaL.bg(dark),
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        item(key = "actions") {
+                            Spacer(Modifier.height(14.dp))
+                            // Action Buttons Bar (Always shows Like, CC, Audio Language, Quality, Share, Download)
+                            YouTubeActionButtonsRow(
+                                dark = dark,
+                                ui = ui,
+                                isSavedOffline = viewModel.isVideoSavedOffline(video.videoId),
+                                onToggleLike = viewModel::toggleLike,
+                                onToggleDislike = viewModel::toggleDislike,
+                                onToggleSaveOffline = { viewModel.toggleSaveOffline(video) },
+                                onOpenLanguage = { showAudioLanguageDialog = true },
+                                onOpenSubtitles = { showSubtitleDialog = true },
+                                onOpenQuality = { showQualityDialog = true },
+                            )
+                        }
+
+                        item(key = "description_box") {
+                            Spacer(Modifier.height(14.dp))
+                            var descExpanded by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(RivaL.pill(dark))
+                                    .clickable { descExpanded = !descExpanded }
+                                    .padding(12.dp),
+                            ) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${video.viewCount ?: "1.4M views"} • ${video.publishedTime ?: "recently"}",
+                                            color = RivaL.text(dark),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "#trending #video",
+                                            color = RivaL.red(dark),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = video.title,
+                                        color = RivaL.text(dark),
+                                        fontSize = 12.sp,
+                                        maxLines = if (descExpanded) 20 else 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 16.sp,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = if (descExpanded) "Show less" else "...more",
+                                        color = RivaL.textDim(dark),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                            }
+                        }
+
+                        item(key = "comments") {
+                            Spacer(Modifier.height(14.dp))
+                            // Comments Section Teaser
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(RivaL.pill(dark))
+                                    .padding(12.dp),
+                            ) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Comments",
+                                            fontWeight = FontWeight.Bold,
+                                            color = RivaL.text(dark),
+                                            style = MaterialTheme.typography.labelLarge,
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "2.8K",
+                                            color = RivaL.textDim(dark),
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = "Awesome video in crystal clear HD! 🔥",
+                                        color = RivaL.text(dark),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+
+                        item(key = "upnext_header") {
+                            Spacer(Modifier.height(16.dp))
+                            // Up Next / Related Videos Header
+                            Text(
+                                text = "Up next",
+                                color = RivaL.text(dark),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            )
+                        }
+
+                        // Up next videos list (Lazy rendering)
+                        itemsIndexed(feed, key = { _, item -> "related_${item.videoId}" }) { idx, related ->
+                            if (idx != currentIndex) {
+                                YouTubeRelatedVideoCard(
+                                    item = related,
+                                    dark = dark,
+                                    onClick = { onSelectRelated(idx) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE PLAYER OVERLAY CONTROLS ----------------
+
+@Composable
+private fun YouTubePlayerOverlay(
+    dark: Boolean,
+    ui: VideoUiState,
+    progressFlow: StateFlow<PlaybackProgress>,
+    isFullscreen: Boolean,
+    onTogglePlay: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSeekRelative: (Long) -> Unit,
+    onClose: () -> Unit,
+    onToggleFullscreen: () -> Unit,
+    onToggleSubtitles: () -> Unit,
+    onOpenSubtitleDialog: () -> Unit,
+    onOpenAudioDialog: () -> Unit,
+    onOpenQualityDialog: () -> Unit,
+    onSelectSpeed: (Float) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var controlsVisible by remember { mutableStateOf(true) }
+    var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var speedMenuOpen by remember { mutableStateOf(false) }
+    var settingsMenuOpen by remember { mutableStateOf(false) }
+
+    // Auto-hide controls after 3.5 seconds when playing
+    LaunchedEffect(controlsVisible, ui.isPlaying, lastInteraction) {
+        if (controlsVisible && ui.isPlaying) {
+            delay(3500)
+            controlsVisible = false
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        controlsVisible = !controlsVisible
+                        lastInteraction = System.currentTimeMillis()
+                    },
+                    onDoubleTap = { offset ->
+                        val width = size.width
+                        lastInteraction = System.currentTimeMillis()
+                        if (offset.x < width * 0.45f) {
+                            onSeekRelative(-10_000L)
+                        } else if (offset.x > width * 0.55f) {
+                            onSeekRelative(10_000L)
+                        } else {
+                            onTogglePlay()
+                        }
+                    },
+                )
+            },
+    ) {
+        // Error Card with Retry Button
+        ui.error?.let { errorMsg ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xE6141414))
+                    .padding(16.dp),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Playback Error",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = errorMsg,
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = onRetry,
+                        colors = ButtonDefaults.buttonColors(containerColor = RivaL.red(dark)),
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Icon(Icons.Filled.Refresh, contentDescription = null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Retry", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+
+        // Overlay Controls
+        AnimatedVisibility(
+            visible = controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x66000000)),
+            ) {
+                // Top Bar Controls
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onClose) {
+                        Icon(
+                            imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Dismiss",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+
+                    Spacer(Modifier.weight(1f))
+
+                    // Subtitle / Closed-Caption (CC) Toggle Button
+                    IconButton(
+                        onClick = {
+                            lastInteraction = System.currentTimeMillis()
+                            onToggleSubtitles()
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (ui.isSubtitlesEnabled) Icons.Filled.ClosedCaption else Icons.Filled.ClosedCaptionOff,
+                            contentDescription = "Subtitles",
+                            tint = if (ui.isSubtitlesEnabled) Color(0xFF3EA6FF) else Color.White,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+
+                    // Prominent Audio Language Button Pill (ALWAYS VISIBLE)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x66FFFFFF),
+                        modifier = Modifier
+                            .clickable {
+                                lastInteraction = System.currentTimeMillis()
+                                onOpenAudioDialog()
+                            }
+                            .padding(horizontal = 2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.Audiotrack,
+                                contentDescription = "Audio Language",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                text = "Audio",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(4.dp))
+
+                    // Quality Badge (CLICKABLE TO SWITCH RESOLUTION: 1080p, 720p, etc.)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x66FFFFFF),
+                        modifier = Modifier
+                            .clickable {
+                                lastInteraction = System.currentTimeMillis()
+                                onOpenQualityDialog()
+                            }
+                            .padding(horizontal = 2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.HighQuality,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                text = ui.qualityLabel ?: "HD",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    // YouTube Settings Gear Menu
+                    Box {
+                        IconButton(
+                            onClick = {
+                                lastInteraction = System.currentTimeMillis()
+                                settingsMenuOpen = true
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = settingsMenuOpen,
+                            onDismissRequest = { settingsMenuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.HighQuality, contentDescription = null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Text("Quality • ${ui.qualityLabel ?: "HD"}")
+                                    }
+                                },
+                                onClick = {
+                                    settingsMenuOpen = false
+                                    onOpenQualityDialog()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Audiotrack, contentDescription = null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Text("Audio Track • ${ui.selectedAudioLanguage ?: "Original"}")
+                                    }
+                                },
+                                onClick = {
+                                    settingsMenuOpen = false
+                                    onOpenAudioDialog()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.ClosedCaption, contentDescription = null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Text("Subtitles • " + if (ui.isSubtitlesEnabled) (ui.selectedSubtitleLang ?: "On") else "Off")
+                                    }
+                                },
+                                onClick = {
+                                    settingsMenuOpen = false
+                                    onOpenSubtitleDialog()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Speed, contentDescription = null, Modifier.size(18.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Text("Playback Speed • ${ui.playbackSpeed}x")
+                                    }
+                                },
+                                onClick = {
+                                    settingsMenuOpen = false
+                                    speedMenuOpen = true
+                                },
+                            )
+                        }
+
+                        // Speed Submenu
+                        DropdownMenu(
+                            expanded = speedMenuOpen,
+                            onDismissRequest = { speedMenuOpen = false },
+                        ) {
+                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "${speed}x" + if (speed == ui.playbackSpeed) " ✓" else "",
+                                            fontWeight = if (speed == ui.playbackSpeed) FontWeight.Bold else FontWeight.Normal,
+                                        )
+                                    },
+                                    onClick = {
+                                        onSelectSpeed(speed)
+                                        speedMenuOpen = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    // Fullscreen Toggle
+                    IconButton(onClick = onToggleFullscreen) {
+                        Icon(
+                            imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                            contentDescription = "Fullscreen",
+                            tint = Color.White,
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                }
+
+                // Center Controls (10s Rewind, Play/Pause, 10s Forward)
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                ) {
+                    IconButton(onClick = {
+                        lastInteraction = System.currentTimeMillis()
+                        onSeekRelative(-10_000L)
+                    }) {
+                        Icon(
+                            Icons.Filled.Replay10,
+                            contentDescription = "Rewind 10s",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
+
+                    // YouTube Play/Pause Circle
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xCC000000))
+                            .border(1.5.dp, Color(0x66FFFFFF), CircleShape)
+                            .clickable(onClick = {
+                                lastInteraction = System.currentTimeMillis()
+                                onTogglePlay()
+                            }),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (ui.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = "Play/Pause",
+                            tint = Color.White,
+                            modifier = Modifier.size(38.dp),
+                        )
+                    }
+
+                    IconButton(onClick = {
+                        lastInteraction = System.currentTimeMillis()
+                        onSeekRelative(10_000L)
+                    }) {
+                        Icon(
+                            Icons.Filled.Forward10,
+                            contentDescription = "Forward 10s",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
+                }
+
+                // Bottom Seek Bar & Duration (Isolated to prevent full-screen recomposition lag)
+                PlayerProgressBar(
+                    progressFlow = progressFlow,
+                    dark = dark,
+                    isFullscreen = isFullscreen,
+                    onSeek = onSeek,
+                    onToggleFullscreen = onToggleFullscreen,
+                    onInteraction = { lastInteraction = System.currentTimeMillis() },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
+        }
+    }
+}
+
+// ---------------- ISOLATED PROGRESS & SEEK BAR (60/120 FPS FLUID) ----------------
+
+@Composable
+private fun PlayerProgressBar(
+    progressFlow: StateFlow<PlaybackProgress>,
+    dark: Boolean,
+    isFullscreen: Boolean,
+    onSeek: (Long) -> Unit,
+    onToggleFullscreen: () -> Unit,
+    onInteraction: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val progress by progressFlow.collectAsStateWithLifecycle()
+    var dragging by remember { mutableStateOf(false) }
+    var dragProgressMs by remember { mutableLongStateOf(0L) }
+    val shownPosition = if (dragging) dragProgressMs else progress.positionMs
+    val total = progress.durationMs
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))),
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        if (total > 0L) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val bufferedFrac = (progress.bufferedPositionMs.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                if (bufferedFrac > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(bufferedFrac)
+                            .height(3.dp)
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color(0x88FFFFFF)),
+                    )
+                }
+
+                Slider(
+                    value = (shownPosition.toFloat() / total.toFloat()).coerceIn(0f, 1f),
+                    onValueChange = { frac ->
+                        dragging = true
+                        dragProgressMs = (frac * total).toLong()
+                        onInteraction()
+                    },
+                    onValueChangeFinished = {
+                        onSeek(dragProgressMs)
+                        dragging = false
+                        onInteraction()
+                    },
+                    colors = SliderDefaults.colors(
+                        thumbColor = RivaL.red(dark),
+                        activeTrackColor = RivaL.red(dark),
+                        inactiveTrackColor = Color(0x33FFFFFF),
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${formatDuration(shownPosition)} / ${formatDuration(total)}",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = FontFamily.Monospace,
+            )
+            Spacer(Modifier.weight(1f))
+            IconButton(
+                onClick = onToggleFullscreen,
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                    contentDescription = "Fullscreen",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE ACTION BUTTONS ROW ----------------
+
+@Composable
+private fun YouTubeActionButtonsRow(
+    dark: Boolean,
+    ui: VideoUiState,
+    isSavedOffline: Boolean,
+    onToggleLike: () -> Unit,
+    onToggleDislike: () -> Unit,
+    onToggleSaveOffline: () -> Unit,
+    onOpenLanguage: () -> Unit,
+    onOpenSubtitles: () -> Unit,
+    onOpenQuality: () -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Like / Dislike Pill
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = RivaL.pill(dark),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier.clickable(onClick = onToggleLike),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ThumbUp,
+                            contentDescription = "Like",
+                            tint = if (ui.isLiked) RivaL.red(dark) else RivaL.text(dark),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = if (ui.isLiked) "Liked" else "142K",
+                            color = RivaL.text(dark),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(16.dp)
+                            .background(RivaL.textDim(dark).copy(alpha = 0.3f)),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Icon(
+                        imageVector = Icons.Filled.ThumbDown,
+                        contentDescription = "Dislike",
+                        tint = if (ui.isDisliked) RivaL.red(dark) else RivaL.text(dark),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable(onClick = onToggleDislike),
+                    )
+                }
+            }
+        }
+
+        // Save for Offline / Download Pill
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (isSavedOffline) RivaL.text(dark) else RivaL.pill(dark),
+                modifier = Modifier.clickable(onClick = onToggleSaveOffline),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = if (isSavedOffline) Icons.Filled.DownloadDone else Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = if (isSavedOffline) RivaL.bg(dark) else RivaL.text(dark),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (isSavedOffline) "Saved" else "Download",
+                        color = if (isSavedOffline) RivaL.bg(dark) else RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        // Audio Language Button (ALWAYS VISIBLE)
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = RivaL.pill(dark),
+                modifier = Modifier.clickable(onClick = onOpenLanguage),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Audiotrack,
+                        contentDescription = "Audio Language",
+                        tint = RivaL.text(dark),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Audio: ${ui.selectedAudioLanguage ?: "Original"}",
+                        color = RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        // Subtitles (CC) Button
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (ui.isSubtitlesEnabled) RivaL.text(dark) else RivaL.pill(dark),
+                modifier = Modifier.clickable(onClick = onOpenSubtitles),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.ClosedCaption,
+                        contentDescription = null,
+                        tint = if (ui.isSubtitlesEnabled) RivaL.bg(dark) else RivaL.text(dark),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (ui.isSubtitlesEnabled) "CC: ${ui.selectedSubtitleLang?.uppercase() ?: "ON"}" else "CC (Subtitles)",
+                        color = if (ui.isSubtitlesEnabled) RivaL.bg(dark) else RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        // HD Quality Pill Button
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = RivaL.pill(dark),
+                modifier = Modifier.clickable(onClick = onOpenQuality),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.HighQuality,
+                        contentDescription = null,
+                        tint = RivaL.text(dark),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = ui.qualityLabel ?: "HD Quality",
+                        color = RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        // Share Button
+        item {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = RivaL.pill(dark),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Share,
+                        contentDescription = null,
+                        tint = RivaL.text(dark),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Share",
+                        color = RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+    }
+}
+
+// ---------------- YOUTUBE RELATED / SUGGESTED VIDEO CARD ----------------
+
+@Composable
+private fun YouTubeRelatedVideoCard(
+    item: VideoItem,
+    dark: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        // Thumbnail
+        Box(
+            modifier = Modifier
+                .width(136.dp)
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(RivaL.panelMid(dark)),
+        ) {
+            AsyncImage(
+                model = item.thumbnailUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xE6000000))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    text = formatDuration(item.durationMs),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
+        Spacer(Modifier.width(10.dp))
+
+        // Info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                color = RivaL.text(dark),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = item.channel,
+                color = RivaL.textDim(dark),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${item.viewCount ?: "950K views"} • ${item.publishedTime ?: "recently"}",
+                color = RivaL.textDim(dark),
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 10.sp,
+            )
+        }
+    }
+}
+
+// ---------------- VIDEO QUALITY SELECTION DIALOG (HD 1080p, 720p, etc.) ----------------
+
+@Composable
+private fun VideoQualityDialog(
+    dark: Boolean,
+    availableQualities: List<VideoQualityTrack>,
+    selectedQuality: String?,
+    onSelect: (VideoQualityTrack) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.HighQuality,
+                    contentDescription = null,
+                    tint = RivaL.red(dark),
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Video Quality",
+                    fontWeight = FontWeight.Bold,
+                    color = RivaL.text(dark),
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (availableQualities.isEmpty()) {
+                    Text(
+                        text = "Auto HD (Current: ${selectedQuality ?: "720p HD"})",
+                        color = RivaL.text(dark),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 10.dp),
+                    )
+                } else {
+                    availableQualities.forEach { q ->
+                        val isSelected = selectedQuality == q.qualityLabel || (selectedQuality?.contains(q.qualityLabel) == true)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(q) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = q.qualityLabel,
+                                    color = if (isSelected) RivaL.red(dark) else RivaL.text(dark),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    fontSize = 15.sp,
+                                )
+                                Text(
+                                    text = if (q.height >= 720) "High Definition • Smooth 60fps" else "Standard Definition",
+                                    color = RivaL.textDim(dark),
+                                    fontSize = 11.sp,
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(Icons.Filled.Check, contentDescription = null, tint = RivaL.red(dark))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = RivaL.text(dark))
+            }
+        },
+        containerColor = RivaL.panel(dark),
+    )
+}
+
+
+// ---------------- SUBTITLE LANGUAGE SELECTION DIALOG ----------------
+
+@Composable
+private fun SubtitleLanguageDialog(
+    dark: Boolean,
+    availableSubtitles: List<SubtitleTrack>,
+    selectedLang: String?,
+    isSubtitlesEnabled: Boolean,
+    onSelect: (SubtitleTrack?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Subtitles / Captions (CC)",
+                fontWeight = FontWeight.Bold,
+                color = RivaL.text(dark),
+            )
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                // Turn OFF option
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(null) }
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Turn Off Subtitles",
+                        color = if (!isSubtitlesEnabled) RivaL.red(dark) else RivaL.text(dark),
+                        fontWeight = if (!isSubtitlesEnabled) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (!isSubtitlesEnabled) {
+                        Icon(Icons.Filled.Check, contentDescription = null, tint = RivaL.red(dark))
+                    }
+                }
+
+                if (availableSubtitles.isEmpty()) {
+                    Text(
+                        text = "No additional subtitle tracks available for this video.",
+                        color = RivaL.textDim(dark),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                } else {
+                    availableSubtitles.forEach { sub ->
+                        val isSelected = isSubtitlesEnabled && selectedLang == sub.languageCode
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(sub) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = sub.name,
+                                color = if (isSelected) RivaL.red(dark) else RivaL.text(dark),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Filled.Check, contentDescription = null, tint = RivaL.red(dark))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = RivaL.text(dark))
+            }
+        },
+        containerColor = RivaL.panel(dark),
+    )
+}
+
+
+// ---------------- AUDIO LANGUAGE SELECTION DIALOG ----------------
+
+@Composable
+private fun AudioLanguageDialog(
+    dark: Boolean,
+    availableTracks: List<AudioLanguageTrack>,
+    selectedName: String?,
+    onSelect: (AudioLanguageTrack) -> Unit,
+    onDismiss: () -> Unit,
+    onExploreMultiAudio: () -> Unit = {},
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Audiotrack,
+                    contentDescription = null,
+                    tint = RivaL.red(dark),
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Audio Language",
+                    fontWeight = FontWeight.Bold,
+                    color = RivaL.text(dark),
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (availableTracks.isEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Original Audio (Default)",
+                            color = RivaL.red(dark),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(Icons.Filled.Check, contentDescription = null, tint = RivaL.red(dark))
+                    }
+                    Text(
+                        text = "Is video ke liye YouTube par additional dubbed audio tracks available nahi hain.",
+                        color = RivaL.textDim(dark),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else {
+                    availableTracks.forEach { track ->
+                        val isSelected = selectedName == track.name || (selectedName == null && track.id == "default")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(track) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = track.name,
+                                color = if (isSelected) RivaL.red(dark) else RivaL.text(dark),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Filled.Check, contentDescription = null, tint = RivaL.red(dark))
+                            }
+                        }
+                    }
+                }
+
+                if (availableTracks.size <= 1) {
+                    Spacer(Modifier.height(10.dp))
+                    Card(
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = RivaL.pill(dark)),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text(
+                                text = "💡 YouTube par har video me multiple audio tracks nahi hote. Zyadatar songs me sirf Original audio hoti hai.",
+                                color = RivaL.textDim(dark),
+                                fontSize = 11.sp,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    onDismiss()
+                                    onExploreMultiAudio()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RivaL.red(dark)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Multi-Audio Videos Dekhein (MrBeast / Dubbed) 🎬", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = RivaL.text(dark))
+            }
+        },
+        containerColor = RivaL.panel(dark),
+    )
+}
+
+// ---------------- YOUTUBE SHORTS SCREEN (FULLSCREEN VERTICAL PAGER) ----------------
+
+@Composable
+private fun YouTubeShortsScreen(
+    dark: Boolean,
+    viewModel: RivaVideoViewModel,
+    shorts: List<ShortItem>,
+    loading: Boolean,
+    onChannelClick: (String?, String?) -> Unit,
+) {
+    val ui by viewModel.ui.collectAsStateWithLifecycle()
+    val isResolving by viewModel.isResolving.collectAsStateWithLifecycle()
+    val activeIndex by viewModel.activeShortIndex.collectAsStateWithLifecycle()
+
+    if (loading && shorts.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(color = RivaL.red(dark), strokeWidth = 3.dp)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Loading Shorts… ⚡",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        return
+    }
+
+    if (shorts.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp),
+            ) {
+                Text(
+                    text = "Koi Shorts nahi mili",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.loadShorts() },
+                    colors = ButtonDefaults.buttonColors(containerColor = RivaL.red(dark)),
+                    shape = RoundedCornerShape(20.dp),
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Retry")
+                }
+            }
+        }
+        return
+    }
+
+    val pagerState = rememberPagerState(
+        initialPage = activeIndex.coerceIn(0, shorts.lastIndex),
+        pageCount = { shorts.size },
+    )
+
+    LaunchedEffect(pagerState.currentPage) {
+        viewModel.switchShort(pagerState.currentPage)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+    ) {
+        VerticalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            beyondViewportPageCount = 1,
+        ) { page ->
+            val short = shorts[page]
+            val isCurrent = page == pagerState.currentPage
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { viewModel.togglePlayPause() },
+                        )
+                    },
+            ) {
+                // Video Surface or Poster Thumbnail
+                if (isCurrent && ui.videoId == short.videoId) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PlayerView(ctx).apply {
+                                useController = false
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            }
+                        },
+                        update = { view ->
+                            val player = viewModel.attachedPlayer()
+                            if (view.player !== player) view.player = player
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    AsyncImage(
+                        model = short.thumbnailUrl,
+                        contentDescription = short.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+
+                // Loading / Buffering Spinner
+                if (isCurrent && (isResolving || ui.isBuffering)) {
+                    CircularProgressIndicator(
+                        color = RivaL.red(dark),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(44.dp),
+                        strokeWidth = 3.dp,
+                    )
+                }
+
+                // Paused overlay icon
+                if (isCurrent && !ui.isPlaying && !ui.isBuffering && !isResolving) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x80000000)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
+                }
+
+                // Top Header Overlay ("Shorts" title)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Shorts",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { viewModel.loadShorts() }) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = "Refresh",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+
+                // Bottom Gradient Scrim for readable text
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color(0xD9000000)),
+                            ),
+                        ),
+                )
+
+                // Right Floating Action Buttons Column
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    // Creator Avatar (Clickable to open channel)
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                            .clickable { onChannelClick(short.channelId, short.channel) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!short.channelAvatarUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = short.channelAvatarUrl,
+                                contentDescription = short.channel,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(RivaL.red(dark)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = short.channel.firstOrNull()?.uppercase() ?: "Y",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                )
+                            }
+                        }
+                    }
+
+                    // Like Button
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable { viewModel.toggleShortLike(page) },
+                    ) {
+                        Icon(
+                            imageVector = if (short.isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (short.isLiked) Color(0xFFFF2D55) else Color.White,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (short.isLiked) "Liked" else short.likesCount,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+
+                    // Comments Button
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Comment,
+                            contentDescription = "Comments",
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = short.commentsCount,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+
+                    // Share Button
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = "Share",
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Share",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+
+                    // Audio Vinyl Disc Icon
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF262626))
+                            .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Audiotrack,
+                            contentDescription = "Audio",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+
+                // Bottom Left Channel & Video Details
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 14.dp, end = 76.dp, bottom = 24.dp),
+                ) {
+                    // Channel Handle & Subscribe Button
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onChannelClick(short.channelId, short.channel) },
+                    ) {
+                        Text(
+                            text = "@${short.channel.replace(" ", "")}",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = RivaL.red(dark),
+                            modifier = Modifier.clickable { viewModel.toggleSubscribe() },
+                        ) {
+                            Text(
+                                text = if (ui.isSubscribed) "Subscribed" else "Subscribe",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Short Title
+                    Text(
+                        text = short.title,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp,
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Audio track info
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Audiotrack,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Original sound - ${short.channel}",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                // Thin progress line at the bottom
+                if (isCurrent) {
+                    val progress by viewModel.progress.collectAsStateWithLifecycle()
+                    val fraction = if (progress.durationMs > 0L) {
+                        (progress.positionMs.toFloat() / progress.durationMs.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .align(Alignment.BottomStart)
+                            .background(Color.White.copy(alpha = 0.2f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction)
+                                .height(2.dp)
+                                .background(RivaL.red(dark)),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE BOTTOM NAVIGATION BAR ----------------
+
+@Composable
+private fun YouTubeBottomNavBar(
+    currentTab: RivaVideoViewModel.AppTab,
+    onSelectTab: (RivaVideoViewModel.AppTab) -> Unit,
+    dark: Boolean,
+) {
+    Surface(
+        color = RivaL.bg(dark),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, RivaL.pill(dark)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 6.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Home
+                val isHome = currentTab == RivaVideoViewModel.AppTab.HOME
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectTab(RivaVideoViewModel.AppTab.HOME) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Home,
+                        contentDescription = "Home",
+                        tint = if (isHome) RivaL.red(dark) else RivaL.textDim(dark),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "Home",
+                        color = if (isHome) RivaL.text(dark) else RivaL.textDim(dark),
+                        fontSize = 11.sp,
+                        fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
+
+                // Shorts
+                val isShorts = currentTab == RivaVideoViewModel.AppTab.SHORTS
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectTab(RivaVideoViewModel.AppTab.SHORTS) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.FlashOn,
+                        contentDescription = "Shorts",
+                        tint = if (isShorts) RivaL.red(dark) else RivaL.textDim(dark),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "Shorts",
+                        color = if (isShorts) RivaL.text(dark) else RivaL.textDim(dark),
+                        fontSize = 11.sp,
+                        fontWeight = if (isShorts) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
+
+                // Multi-Audio (Dubbed)
+                val isDubbed = currentTab == RivaVideoViewModel.AppTab.DUBBED
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectTab(RivaVideoViewModel.AppTab.DUBBED) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Translate,
+                        contentDescription = "Multi-Audio",
+                        tint = if (isDubbed) RivaL.red(dark) else RivaL.textDim(dark),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "Multi-Audio",
+                        color = if (isDubbed) RivaL.text(dark) else RivaL.textDim(dark),
+                        fontSize = 11.sp,
+                        fontWeight = if (isDubbed) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
+
+                // Profile / You
+                val isProfile = currentTab == RivaVideoViewModel.AppTab.PROFILE
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectTab(RivaVideoViewModel.AppTab.PROFILE) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AccountCircle,
+                        contentDescription = "You",
+                        tint = if (isProfile) RivaL.red(dark) else RivaL.textDim(dark),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "You",
+                        color = if (isProfile) RivaL.text(dark) else RivaL.textDim(dark),
+                        fontSize = 11.sp,
+                        fontWeight = if (isProfile) FontWeight.Bold else FontWeight.Medium,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------- YOUTUBE CHANNEL SCREEN ----------------
+
+@Composable
+private fun YouTubeChannelScreen(
+    channel: ChannelDetails,
+    loading: Boolean,
+    dark: Boolean,
+    onClose: () -> Unit,
+    onToggleSubscribe: () -> Unit,
+    onVideoClick: (VideoItem) -> Unit,
+) {
+    BackHandler(enabled = true) {
+        onClose()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(RivaL.bg(dark))
+            .statusBarsPadding(),
+    ) {
+        // Channel Top Header Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = RivaL.text(dark),
+                )
+            }
+            Text(
+                text = channel.title,
+                color = RivaL.text(dark),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = {}) {
+                Icon(Icons.Filled.Share, contentDescription = "Share", tint = RivaL.text(dark))
+            }
+            IconButton(onClick = {}) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = RivaL.text(dark))
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp),
+        ) {
+            // 1. Channel Banner
+            item(key = "channel_banner") {
+                if (!channel.bannerUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = channel.bannerUrl,
+                        contentDescription = "Channel Banner",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 5f)
+                            .background(RivaL.panelMid(dark)),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFF202020),
+                                        Color(0xFF333333),
+                                        Color(0xFF202020),
+                                    ),
+                                ),
+                            ),
+                    )
+                }
+            }
+
+            // 2. Channel Avatar, Name, Handle, Subs, Subscribe Button
+            item(key = "channel_header_info") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!channel.avatarUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = channel.avatarUrl,
+                                contentDescription = channel.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, RivaL.bg(dark), CircleShape),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(RivaL.pill(dark)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = channel.title.firstOrNull()?.uppercase() ?: "C",
+                                    color = RivaL.text(dark),
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = channel.title,
+                                color = RivaL.text(dark),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            if (!channel.handle.isNullOrEmpty()) {
+                                Text(
+                                    text = channel.handle,
+                                    color = RivaL.textDim(dark),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Text(
+                                text = "${channel.subscriberCount} • ${channel.videoCount ?: ""}",
+                                color = RivaL.textDim(dark),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+
+                    if (!channel.description.isNullOrEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = channel.description,
+                            color = RivaL.textDim(dark),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Subscribe Button (Full Width YouTube Pill)
+                    Button(
+                        onClick = onToggleSubscribe,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (channel.isSubscribed) RivaL.pill(dark) else RivaL.text(dark),
+                            contentColor = if (channel.isSubscribed) RivaL.text(dark) else RivaL.bg(dark),
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                    ) {
+                        if (channel.isSubscribed) {
+                            Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = if (channel.isSubscribed) "Subscribed" else "Subscribe",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = "Videos",
+                        color = RivaL.text(dark),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+
+            // 3. Channel Videos
+            if (loading && channel.videos.isEmpty()) {
+                item(key = "channel_loading") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = RivaL.red(dark), strokeWidth = 3.dp)
+                    }
+                }
+            } else if (channel.videos.isEmpty()) {
+                item(key = "channel_empty") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Koi video nahi mili",
+                            color = RivaL.textDim(dark),
+                        )
+                    }
+                }
+            } else {
+                itemsIndexed(channel.videos, key = { _, video -> "ch_vid_${video.videoId}" }) { _, video ->
+                    YouTubeVideoCard(
+                        item = video,
+                        dark = dark,
+                        onClick = { onVideoClick(video) },
+                        onChannelClick = null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------- REGION & CONTENT PREFERENCE DIALOG ----------------
+
+@Composable
+private fun RegionPreferenceDialog(
+    dark: Boolean,
+    currentRegion: RegionPreference,
+    onSelectRegion: (RegionPreference) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Content Preference",
+                color = RivaL.text(dark),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    text = "Aap kis type ka content zyada dekhna chahte hain? Isse aapka home feed personalize hoga:",
+                    color = RivaL.textDim(dark),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+
+                RegionPreference.values().forEach { pref ->
+                    val selected = pref == currentRegion
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selected) RivaL.red(dark).copy(alpha = 0.15f) else RivaL.pill(dark).copy(alpha = 0.4f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (selected) RivaL.red(dark) else RivaL.pill(dark),
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable {
+                                onSelectRegion(pref)
+                                onDismiss()
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = pref.flag,
+                                fontSize = 24.sp,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = pref.title,
+                                    color = RivaL.text(dark),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = pref.description,
+                                    color = RivaL.textDim(dark),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                            if (selected) {
+                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = "Selected",
+                                    tint = RivaL.red(dark),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = RivaL.red(dark), fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = RivaL.panelMid(dark),
+    )
+}
+
+// ---------------- YOUTUBE PROFILE & LIBRARY SCREEN ----------------
+
+@Composable
+private fun YouTubeProfileScreen(
+    dark: Boolean,
+    viewModel: RivaVideoViewModel,
+) {
+    val isBgEnabled by viewModel.isBackgroundPlaybackEnabled.collectAsStateWithLifecycle()
+    val regionPreference by viewModel.regionPreference.collectAsStateWithLifecycle()
+    val offlineVideos by viewModel.offlineVideos.collectAsStateWithLifecycle()
+    val watchHistory by viewModel.watchHistory.collectAsStateWithLifecycle()
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(RivaL.bg(dark))
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = 32.dp),
+    ) {
+        // 1. Profile Top Bar / User Card
+        item(key = "profile_header") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    RivaL.red(dark),
+                                    Color(0xFFFF8A80),
+                                ),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "R",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Spacer(Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Riva User",
+                        color = RivaL.text(dark),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "@rivavideo • Offline & Ad-Free",
+                        color = RivaL.textDim(dark),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        // 2. Background Playback Toggle Card
+        item(key = "bg_playback_setting") {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = RivaL.panelMid(dark)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(if (isBgEnabled) RivaL.red(dark).copy(alpha = 0.2f) else RivaL.pill(dark)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Audiotrack,
+                            contentDescription = null,
+                            tint = if (isBgEnabled) RivaL.red(dark) else RivaL.textDim(dark),
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Background Playback",
+                            color = RivaL.text(dark),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = if (isBgEnabled) "Video audio background me chalta rahega" else "App minimize hone par video ruk jayegi",
+                            color = RivaL.textDim(dark),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+
+                    Switch(
+                        checked = isBgEnabled,
+                        onCheckedChange = { viewModel.toggleBackgroundPlayback() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = RivaL.bg(dark),
+                            checkedTrackColor = RivaL.red(dark),
+                            uncheckedThumbColor = RivaL.textDim(dark),
+                            uncheckedTrackColor = RivaL.pill(dark),
+                        ),
+                    )
+                }
+            }
+        }
+
+        // 3. Content Region Selector Card
+        item(key = "region_setting") {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = RivaL.panelMid(dark)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable { viewModel.openRegionPicker() },
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = regionPreference.flag,
+                        fontSize = 28.sp,
+                    )
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Content Region",
+                                color = RivaL.textDim(dark),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = regionPreference.title,
+                            color = RivaL.text(dark),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = regionPreference.description,
+                            color = RivaL.textDim(dark),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = RivaL.pill(dark),
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
+                        Text(
+                            text = "Change",
+                            color = RivaL.red(dark),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. Watch History Section (Last 7 Days)
+        item(key = "history_header") {
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.History,
+                    contentDescription = null,
+                    tint = RivaL.red(dark),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "History (Last 7 Days)",
+                    color = RivaL.text(dark),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (watchHistory.isNotEmpty()) {
+                    TextButton(onClick = viewModel::clearWatchHistory) {
+                        Text(
+                            text = "Clear all",
+                            color = RivaL.textDim(dark),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (watchHistory.isEmpty()) {
+            item(key = "history_empty") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(RivaL.panelMid(dark))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Koi watch history nahi hai. Jo videos aap dekhenge woh yahan aayengi.",
+                        color = RivaL.textDim(dark),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        } else {
+            item(key = "history_row") {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(watchHistory, key = { "hist_${it.videoId}_${it.watchedAtMs}" }) { item ->
+                        ProfileHistoryCard(
+                            item = item,
+                            dark = dark,
+                            onClick = { viewModel.playHistoryVideo(item) },
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Offline Saved Videos Section
+        item(key = "offline_header") {
+            Spacer(Modifier.height(18.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.DownloadDone,
+                    contentDescription = null,
+                    tint = RivaL.red(dark),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Saved Videos (Offline)",
+                    color = RivaL.text(dark),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = RivaL.pill(dark),
+                ) {
+                    Text(
+                        text = "${offlineVideos.size}",
+                        color = RivaL.text(dark),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+
+        if (offlineVideos.isEmpty()) {
+            item(key = "offline_empty") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(RivaL.panelMid(dark))
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.DownloadDone,
+                            contentDescription = null,
+                            tint = RivaL.textDim(dark),
+                            modifier = Modifier.size(36.dp),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Koi offline save video nahi hai.",
+                            color = RivaL.text(dark),
+                            fontWeight = FontWeight.Medium,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Video player me 'Save' pill dabayein taaki yahan se kabhi bhi chala sakein.",
+                            color = RivaL.textDim(dark),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        } else {
+            items(offlineVideos, key = { "offline_${it.videoId}" }) { item ->
+                ProfileOfflineVideoCard(
+                    item = item,
+                    dark = dark,
+                    onPlay = { viewModel.playOfflineVideo(item) },
+                    onRemove = { viewModel.removeOfflineVideo(item.videoId) },
+                )
+            }
+        }
+
+        // 6. About App Card
+        item(key = "app_about") {
+            Spacer(Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "RivaVideo v1.0.0 (Release)",
+                    color = RivaL.textDim(dark),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Modern YouTube Client • Full HD • Multi-Audio • Ad-Free",
+                    color = RivaL.textDim(dark).copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileHistoryCard(
+    item: WatchHistoryItem,
+    dark: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = RivaL.panelMid(dark)),
+        modifier = Modifier
+            .width(160.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .background(Color.Black),
+            ) {
+                AsyncImage(
+                    model = item.thumbnailUrl,
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (item.durationMs != null && item.durationMs > 0) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp),
+                    ) {
+                        Text(
+                            text = formatDuration(item.durationMs),
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text(
+                    text = item.title,
+                    color = RivaL.text(dark),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 14.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = item.channel,
+                    color = RivaL.textDim(dark),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileOfflineVideoCard(
+    item: OfflineVideoItem,
+    dark: Boolean,
+    onPlay: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = RivaL.panelMid(dark)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable(onClick = onPlay),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black),
+            ) {
+                AsyncImage(
+                    model = item.thumbnailUrl,
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (item.durationMs != null && item.durationMs > 0) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp),
+                    ) {
+                        Text(
+                            text = formatDuration(item.durationMs),
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    color = RivaL.text(dark),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 15.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = item.channel,
+                    color = RivaL.textDim(dark),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Remove",
+                    tint = RivaL.textDim(dark),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
