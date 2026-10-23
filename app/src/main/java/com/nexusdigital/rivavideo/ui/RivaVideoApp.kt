@@ -11,10 +11,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1145,6 +1148,23 @@ private fun YouTubePlayerOverlay(
 
     Box(
         modifier = modifier
+            .pointerInput(isFullscreen) {
+                var totalDrag = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { totalDrag = 0f },
+                    onDragEnd = {
+                        if (!isFullscreen && totalDrag < -50f) {
+                            onToggleFullscreen()
+                        } else if (isFullscreen && totalDrag > 50f) {
+                            onToggleFullscreen()
+                        }
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDrag += dragAmount
+                    },
+                )
+            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
@@ -1513,43 +1533,88 @@ private fun PlayerProgressBar(
             .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
         if (total > 0L) {
-            Box(
+            val playedFrac = (shownPosition.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+            val bufferedFrac = (progress.bufferedPositionMs.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(24.dp),
-                contentAlignment = Alignment.Center,
+                    .height(24.dp)
+                    .pointerInput(total) {
+                        detectTapGestures { offset ->
+                            val frac = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            onSeek((frac * total).toLong())
+                            onInteraction()
+                        }
+                    }
+                    .pointerInput(total) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                dragging = true
+                                val frac = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                dragProgressMs = (frac * total).toLong()
+                                onInteraction()
+                            },
+                            onDragEnd = {
+                                onSeek(dragProgressMs)
+                                dragging = false
+                                onInteraction()
+                            },
+                            onDragCancel = {
+                                dragging = false
+                            },
+                            onHorizontalDrag = { change, _ ->
+                                change.consume()
+                                val frac = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                dragProgressMs = (frac * total).toLong()
+                                onInteraction()
+                            },
+                        )
+                    },
+                contentAlignment = Alignment.CenterStart,
             ) {
-                val bufferedFrac = (progress.bufferedPositionMs.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                val fullWidth = maxWidth
+                val trackH = if (dragging) 4.dp else 2.5.dp
+
+                // Inactive track (slim)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(trackH)
+                        .clip(RoundedCornerShape(trackH / 2))
+                        .background(Color(0x44FFFFFF)),
+                )
+
+                // Buffered track (slim)
                 if (bufferedFrac > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(bufferedFrac)
-                            .height(3.dp)
-                            .align(Alignment.CenterStart)
-                            .clip(RoundedCornerShape(1.5.dp))
+                            .height(trackH)
+                            .clip(RoundedCornerShape(trackH / 2))
                             .background(Color(0x88FFFFFF)),
                     )
                 }
 
-                Slider(
-                    value = (shownPosition.toFloat() / total.toFloat()).coerceIn(0f, 1f),
-                    onValueChange = { frac ->
-                        dragging = true
-                        dragProgressMs = (frac * total).toLong()
-                        onInteraction()
-                    },
-                    onValueChangeFinished = {
-                        onSeek(dragProgressMs)
-                        dragging = false
-                        onInteraction()
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = RivaL.red(dark),
-                        activeTrackColor = RivaL.red(dark),
-                        inactiveTrackColor = Color(0x33FFFFFF),
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
+                // Played track (red, slim)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(playedFrac)
+                        .height(trackH)
+                        .clip(RoundedCornerShape(trackH / 2))
+                        .background(RivaL.red(dark)),
                 )
+
+                // Thumb knob (only when dragging/scrubbing)
+                if (dragging) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = ((fullWidth * playedFrac) - 6.dp).coerceAtLeast(0.dp))
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(RivaL.red(dark)),
+                    )
+                }
             }
         }
 
