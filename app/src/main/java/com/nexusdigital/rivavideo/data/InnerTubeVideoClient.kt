@@ -623,11 +623,14 @@ class InnerTubeVideoClient(
                     bitrate = bitrate,
                 )
             }
-            // Prefer mp4 over webm for the same height, then sort by highest resolution
+            // Prefer avc1/H.264 for hardware decoding acceleration, then mp4 over webm, then sort by highest resolution
             .sortedWith(
                 compareByDescending<VideoQualityTrack> { it.height }
-                    .thenByDescending { if (it.mimeType.contains("mp4")) 2 else 1 }
-                    .thenByDescending { it.bitrate },
+                    .thenByDescending {
+                        val m = it.mimeType.lowercase()
+                        if (m.contains("avc1")) 3 else if (m.contains("mp4")) 2 else 1
+                    }
+                    .thenBy { it.bitrate },
             )
             .distinctBy { it.height }
 
@@ -733,10 +736,10 @@ class InnerTubeVideoClient(
             }
         }
 
-        // 4. PRIORITY 1: HD Adaptive Stream (prefer 1080p, else 720p HD, then highest available)
-        // Merged with high-quality AAC audio track
-        val bestHdTrack = qualityTracks.firstOrNull { it.height in 720..1080 }
-            ?: qualityTracks.firstOrNull { it.height >= 720 }
+        // 4. PRIORITY 1: HD Adaptive Stream (Fast-loading 720p HD default for instant startup & zero buffering, or 1080p)
+        val bestHdTrack = qualityTracks.firstOrNull { it.height == 720 }
+            ?: qualityTracks.firstOrNull { it.height == 1080 }
+            ?: qualityTracks.firstOrNull { it.height >= 480 }
             ?: qualityTracks.firstOrNull()
 
         if (bestHdTrack != null && bestAudioUrl != null) {

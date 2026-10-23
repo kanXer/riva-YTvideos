@@ -150,6 +150,9 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var savedPositionBeforeBackground: Long = 0L
+    private var wasPlayingBeforeBackground: Boolean = false
+
     private fun exoListeners() {
         playerHolder.exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -166,6 +169,21 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                val currentPos = playerHolder.exoPlayer.currentPosition.takeIf { it > 0L }
+                    ?: _progress.value.positionMs
+                val currentIdx = _watchIndex.value
+                // Seamlessly auto-retry from current position on network or stream disconnect
+                if (currentIdx != null && currentPos > 0L) {
+                    viewModelScope.launch {
+                        delay(500)
+                        val item = _feed.value.getOrNull(currentIdx)
+                        if (item != null && loadedVideoId == item.videoId) {
+                            repo.clearCache(item.videoId)
+                            loadForPage(currentIdx, forceRefresh = true, startPositionMs = currentPos)
+                            return@launch
+                        }
+                    }
+                }
                 _ui.value = _ui.value.copy(
                     error = error.message ?: "Playback failed. Dobara try karein.",
                     isBuffering = false,
@@ -214,10 +232,10 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Settled page ka video resolve + stream playback. */
-    fun loadForPage(index: Int, forceRefresh: Boolean = false) {
+    fun loadForPage(index: Int, forceRefresh: Boolean = false, startPositionMs: Long = 0L) {
         val item = _feed.value.getOrNull(index) ?: return
         recordWatchHistory(item)
-        if (!forceRefresh && loadedVideoId == item.videoId) return
+        if (!forceRefresh && loadedVideoId == item.videoId && startPositionMs == 0L) return
         loadedVideoId = item.videoId
 
         resolveJob?.cancel()
@@ -241,6 +259,7 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
                     channel = item.channel,
                     thumbnailUrl = item.thumbnailUrl,
                     resolution = resolution,
+                    startPositionMs = startPositionMs,
                 )
                 _ui.value = _ui.value.copy(
                     qualityLabel = resolution.qualityLabel ?: (if (resolution.isMuxed) "360p" else "720p HD"),
@@ -267,9 +286,10 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun retryCurrentVideo(pageIndex: Int) {
         val item = _feed.value.getOrNull(pageIndex) ?: return
+        val currentPos = playerHolder.exoPlayer.currentPosition.takeIf { it > 0L } ?: _progress.value.positionMs
         repo.clearCache(item.videoId)
         loadedVideoId = null
-        loadForPage(pageIndex, forceRefresh = true)
+        loadForPage(pageIndex, forceRefresh = true, startPositionMs = currentPos)
     }
 
     fun togglePlayPause() {
@@ -639,6 +659,43 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
     fun pauseForBackground() {
         if (!_isBackgroundPlaybackEnabled.value) {
             playerHolder.exoPlayer.pause()
+        }
+    }
+
+    /** App minimize hone par state save karein aur background setting ke mutabik pause karein */
+    fun onAppBackgrounded() {
+        val player = playerHolder.exoPlayer
+        savedPositionBeforeBackground = player.currentPosition.takeIf { it > 0L } ?: _progress.value.positionMs
+        wasPlayingBeforeBackground = player.isPlaying
+
+        if (!_isBackgroundPlaybackEnabled.value) {
+            player.pause()
+        }
+    }
+
+    /** App wapas foreground aane par bina kisi playback error ke usi jagah se video continue karein */
+    fun onAppForegrounded() {
+        val player = playerHolder.exoPlayer
+        _ui.value = _ui.value.copy(error = null)
+
+        val idx = _watchIndex.value ?: return
+        val pos = savedPositionBeforeBackground.takeIf { it > 0L } ?: player.currentPosition
+
+        if (!_isBackgroundPlaybackEnabled.value) {
+            if (wasPlayingBeforeBackground) {
+                if (player.playbackState == Player.STATE_IDLE || player.playerError != null) {
+                    // Stream expire ya dead ho gaya tha background me, automatically silently resume karein
+                    loadForPage(idx, forceRefresh = true, startPositionMs = pos)
+                } else {
+                    if (pos > 0L) player.seekTo(pos)
+                    player.play()
+                }
+            }
+        } else {
+            // Background playback enabled tha, agar stream fail hua tha to auto recover karein
+            if (player.playerError != null || player.playbackState == Player.STATE_IDLE) {
+                loadForPage(idx, forceRefresh = true, startPositionMs = pos)
+            }
         }
     }
 

@@ -52,13 +52,13 @@ class VideoPlayer(private val appContext: Context) {
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 10_000,
-                /* maxBufferMs = */ 60_000,
-                /* bufferForPlaybackMs = */ 500,
-                /* bufferForPlaybackAfterRebufferMs = */ 1_000,
+                /* minBufferMs = */ 30_000,
+                /* maxBufferMs = */ 120_000,
+                /* bufferForPlaybackMs = */ 1_000,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_000,
             )
             .setBackBuffer(
-                /* backBufferDurationMs = */ 30_000,
+                /* backBufferDurationMs = */ 60_000,
                 /* retainBackBufferFromKeyframe = */ true,
             )
             .setPrioritizeTimeOverSizeThresholds(true)
@@ -86,23 +86,15 @@ class VideoPlayer(private val appContext: Context) {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(12_000)
-            .setReadTimeoutMs(20_000)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(25_000)
+            .setKeepPostFor302Redirects(true)
 
         if (resolution.headers.isNotEmpty()) {
             httpFactory.setDefaultRequestProperties(resolution.headers)
         }
 
-        val upstream = DefaultDataSource.Factory(appContext, httpFactory)
-        val cache = getCache(appContext)
-        return if (cache != null) {
-            CacheDataSource.Factory()
-                .setCache(cache)
-                .setUpstreamDataSourceFactory(upstream)
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-        } else {
-            upstream
-        }
+        return DefaultDataSource.Factory(appContext, httpFactory)
     }
 
     fun playStream(

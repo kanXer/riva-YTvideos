@@ -27,6 +27,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        viewModel.onAppBackgrounded()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.onAppForegrounded()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing) {

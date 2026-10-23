@@ -8,9 +8,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -1137,6 +1141,8 @@ private fun YouTubePlayerOverlay(
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var speedMenuOpen by remember { mutableStateOf(false) }
     var settingsMenuOpen by remember { mutableStateOf(false) }
+    var rewindAnim by remember { mutableStateOf(false) }
+    var forwardAnim by remember { mutableStateOf(false) }
 
     // Auto-hide controls after 3.5 seconds when playing
     LaunchedEffect(controlsVisible, ui.isPlaying, lastInteraction) {
@@ -1146,43 +1152,76 @@ private fun YouTubePlayerOverlay(
         }
     }
 
+    LaunchedEffect(rewindAnim) {
+        if (rewindAnim) {
+            delay(650)
+            rewindAnim = false
+        }
+    }
+
+    LaunchedEffect(forwardAnim) {
+        if (forwardAnim) {
+            delay(650)
+            forwardAnim = false
+        }
+    }
+
     Box(
         modifier = modifier
             .pointerInput(isFullscreen) {
-                var totalDrag = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { totalDrag = 0f },
-                    onDragEnd = {
-                        if (!isFullscreen && totalDrag < -50f) {
-                            onToggleFullscreen()
-                        } else if (isFullscreen && totalDrag > 50f) {
-                            onToggleFullscreen()
-                        }
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        totalDrag += dragAmount
-                    },
-                )
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = {
-                        controlsVisible = !controlsVisible
-                        lastInteraction = System.currentTimeMillis()
-                    },
-                    onDoubleTap = { offset ->
-                        val width = size.width
-                        lastInteraction = System.currentTimeMillis()
-                        if (offset.x < width * 0.45f) {
-                            onSeekRelative(-10_000L)
-                        } else if (offset.x > width * 0.55f) {
-                            onSeekRelative(10_000L)
+                var lastTapTime = 0L
+                var lastTapPos = androidx.compose.ui.geometry.Offset.Zero
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val downTime = System.currentTimeMillis()
+                    val downPos = down.position
+                    var isDrag = false
+                    var totalDragY = 0f
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (!change.pressed) {
+                            val upTime = System.currentTimeMillis()
+                            if (isDrag) {
+                                if (!isFullscreen && totalDragY < -40f) {
+                                    onToggleFullscreen()
+                                } else if (isFullscreen && totalDragY > 40f) {
+                                    onToggleFullscreen()
+                                }
+                            } else if (upTime - downTime < 300) {
+                                val dist = (downPos - lastTapPos).getDistance()
+                                val isDouble = (upTime - lastTapTime < 350) && dist < 140f
+                                if (isDouble) {
+                                    lastTapTime = 0L
+                                    lastInteraction = System.currentTimeMillis()
+                                    if (downPos.x < size.width * 0.5f) {
+                                        onSeekRelative(-10_000L)
+                                        rewindAnim = true
+                                        forwardAnim = false
+                                    } else {
+                                        onSeekRelative(10_000L)
+                                        forwardAnim = true
+                                        rewindAnim = false
+                                    }
+                                } else {
+                                    lastTapTime = upTime
+                                    lastTapPos = downPos
+                                    controlsVisible = !controlsVisible
+                                    lastInteraction = System.currentTimeMillis()
+                                }
+                            }
+                            break
                         } else {
-                            onTogglePlay()
+                            val dragY = change.position.y - downPos.y
+                            if (kotlin.math.abs(dragY) > 25f) {
+                                isDrag = true
+                                totalDragY = dragY
+                            }
                         }
-                    },
-                )
+                    }
+                }
             },
     ) {
         // Error Card with Retry Button
@@ -1503,6 +1542,74 @@ private fun YouTubePlayerOverlay(
                 )
             }
         }
+
+        // 10s Rewind Ripple Overlay (Left Half)
+        AnimatedVisibility(
+            visible = rewindAnim,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 1.15f),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 36.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.Replay10,
+                        contentDescription = "-10 seconds",
+                        tint = Color.White,
+                        modifier = Modifier.size(34.dp),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "10 seconds",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        // 10s Fast Forward Ripple Overlay (Right Half)
+        AnimatedVisibility(
+            visible = forwardAnim,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 1.15f),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 36.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Filled.Forward10,
+                        contentDescription = "+10 seconds",
+                        tint = Color.White,
+                        modifier = Modifier.size(34.dp),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "10 seconds",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1574,45 +1681,45 @@ private fun PlayerProgressBar(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 val fullWidth = maxWidth
-                val trackH = if (dragging) 4.dp else 2.5.dp
+                val trackH = if (dragging) 3.5.dp else 2.dp
 
-                // Inactive track (slim)
+                // Inactive track (ultra-slim)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(trackH)
                         .clip(RoundedCornerShape(trackH / 2))
-                        .background(Color(0x44FFFFFF)),
+                        .background(Color(0x33FFFFFF)),
                 )
 
-                // Buffered track (slim)
+                // Buffered track (ultra-slim)
                 if (bufferedFrac > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(bufferedFrac)
                             .height(trackH)
                             .clip(RoundedCornerShape(trackH / 2))
-                            .background(Color(0x88FFFFFF)),
+                            .background(Color(0x66FFFFFF)),
                     )
                 }
 
-                // Played track (red, slim)
+                // Played track (pure YouTube red, ultra-slim)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(playedFrac)
                         .height(trackH)
                         .clip(RoundedCornerShape(trackH / 2))
-                        .background(RivaL.red(dark)),
+                        .background(Color(0xFFFF0000)),
                 )
 
-                // Thumb knob (only when dragging/scrubbing)
+                // Thumb knob (only when actively dragging/scrubbing, hidden during normal playback)
                 if (dragging) {
                     Box(
                         modifier = Modifier
-                            .padding(start = ((fullWidth * playedFrac) - 6.dp).coerceAtLeast(0.dp))
-                            .size(12.dp)
+                            .padding(start = ((fullWidth * playedFrac) - 5.dp).coerceAtLeast(0.dp))
+                            .size(10.dp)
                             .clip(CircleShape)
-                            .background(RivaL.red(dark)),
+                            .background(Color(0xFFFF0000)),
                     )
                 }
             }
