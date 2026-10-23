@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -84,6 +85,8 @@ import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -111,6 +114,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,8 +122,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -657,9 +663,18 @@ private fun YouTubeWatchScreen(
     val isResolving by viewModel.isResolving.collectAsStateWithLifecycle()
 
     var isFullscreen by remember { mutableStateOf(false) }
+    var zoomScale by remember { mutableFloatStateOf(1f) }
+    var zoomOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var zoomPillText by remember { mutableStateOf<String?>(null) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var showAudioLanguageDialog by remember { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isFullscreen, currentIndex) {
+        zoomScale = 1f
+        zoomOffset = androidx.compose.ui.geometry.Offset.Zero
+        zoomPillText = null
+    }
 
     val currentVideo = feed.getOrNull(currentIndex)
     val context = LocalContext.current
@@ -753,19 +768,32 @@ private fun YouTubeWatchScreen(
                     .fillMaxSize()
                     .background(Color.Black),
             ) {
-                AndroidView(
-                    factory = { ctx ->
-                        PlayerView(ctx).apply {
-                            useController = false
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        }
-                    },
-                    update = { view ->
-                        val player = viewModel.attachedPlayer()
-                        if (view.player !== player) view.player = player
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                // Scalable and pannable video player surface
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .graphicsLayer {
+                            scaleX = zoomScale
+                            scaleY = zoomScale
+                            translationX = zoomOffset.x
+                            translationY = zoomOffset.y
+                        },
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PlayerView(ctx).apply {
+                                useController = false
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                        },
+                        update = { view ->
+                            val player = viewModel.attachedPlayer()
+                            if (view.player !== player) view.player = player
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
 
                 YouTubePlayerOverlay(
                     dark = dark,
@@ -783,6 +811,26 @@ private fun YouTubeWatchScreen(
                     onOpenQualityDialog = { showQualityDialog = true },
                     onSelectSpeed = viewModel::setPlaybackSpeed,
                     onRetry = { viewModel.retryCurrentVideo(currentIndex) },
+                    zoomScale = zoomScale,
+                    zoomOffset = zoomOffset,
+                    onZoomChange = { scale, offset ->
+                        zoomScale = scale
+                        zoomOffset = offset
+                        zoomPillText = if (scale <= 1.05f) {
+                            "Original"
+                        } else if (scale >= 3.95f) {
+                            "Max Zoom (4.0x)"
+                        } else {
+                            String.format(java.util.Locale.US, "%.1fx", scale)
+                        }
+                    },
+                    onResetZoom = {
+                        zoomScale = 1f
+                        zoomOffset = androidx.compose.ui.geometry.Offset.Zero
+                        zoomPillText = "Original"
+                    },
+                    zoomPillText = zoomPillText,
+                    onClearZoomPill = { zoomPillText = null },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -1131,6 +1179,12 @@ private fun YouTubePlayerOverlay(
     onOpenQualityDialog: () -> Unit,
     onSelectSpeed: (Float) -> Unit,
     onRetry: () -> Unit,
+    zoomScale: Float = 1f,
+    zoomOffset: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Zero,
+    onZoomChange: ((Float, androidx.compose.ui.geometry.Offset) -> Unit)? = null,
+    onResetZoom: (() -> Unit)? = null,
+    zoomPillText: String? = null,
+    onClearZoomPill: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -1145,6 +1199,13 @@ private fun YouTubePlayerOverlay(
         if (controlsVisible && ui.isPlaying) {
             delay(3500)
             controlsVisible = false
+        }
+    }
+
+    LaunchedEffect(zoomPillText) {
+        if (zoomPillText != null) {
+            delay(1400)
+            onClearZoomPill?.invoke()
         }
     }
 
@@ -1164,7 +1225,7 @@ private fun YouTubePlayerOverlay(
 
     Box(
         modifier = modifier
-            .pointerInput(isFullscreen) {
+            .pointerInput(isFullscreen, zoomScale, zoomOffset) {
                 var lastTapTime = 0L
                 var lastTapPos = androidx.compose.ui.geometry.Offset.Zero
 
@@ -1174,17 +1235,32 @@ private fun YouTubePlayerOverlay(
                     val downPos = down.position
                     var isDrag = false
                     var totalDragY = 0f
+                    var isPinch = false
+                    var prevPinchDist = -1f
+                    var prevCentroid = androidx.compose.ui.geometry.Offset.Zero
+                    var currentScale = zoomScale
+                    var currentOff = zoomOffset
+                    val dragStartOffset = zoomOffset
 
                     while (true) {
                         val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull() ?: break
-                        if (!change.pressed) {
+                        val pressedChanges = event.changes.filter { it.pressed }
+
+                        if (pressedChanges.isEmpty()) {
                             val upTime = System.currentTimeMillis()
-                            if (isDrag) {
-                                if (!isFullscreen && totalDragY < -40f) {
-                                    onToggleFullscreen()
-                                } else if (isFullscreen && totalDragY > 40f) {
-                                    onToggleFullscreen()
+                            if (isPinch) {
+                                if (currentScale < 1.08f) {
+                                    onResetZoom?.invoke()
+                                }
+                            } else if (isDrag) {
+                                if (currentScale > 1.05f) {
+                                    // Panned while zoomed - offset already applied
+                                } else {
+                                    if (!isFullscreen && totalDragY < -40f) {
+                                        onToggleFullscreen()
+                                    } else if (isFullscreen && totalDragY > 40f) {
+                                        onToggleFullscreen()
+                                    }
                                 }
                             } else if (upTime - downTime < 300) {
                                 val dist = (downPos - lastTapPos).getDistance()
@@ -1192,14 +1268,19 @@ private fun YouTubePlayerOverlay(
                                 if (isDouble) {
                                     lastTapTime = 0L
                                     lastInteraction = System.currentTimeMillis()
-                                    if (downPos.x < size.width * 0.5f) {
-                                        onSeekRelative(-10_000L)
-                                        rewindAnim = true
-                                        forwardAnim = false
+                                    if (currentScale > 1.05f) {
+                                        // Double tap while zoomed resets zoom to 100%!
+                                        onResetZoom?.invoke()
                                     } else {
-                                        onSeekRelative(10_000L)
-                                        forwardAnim = true
-                                        rewindAnim = false
+                                        if (downPos.x < size.width * 0.5f) {
+                                            onSeekRelative(-10_000L)
+                                            rewindAnim = true
+                                            forwardAnim = false
+                                        } else {
+                                            onSeekRelative(10_000L)
+                                            forwardAnim = true
+                                            rewindAnim = false
+                                        }
                                     }
                                 } else {
                                     lastTapTime = upTime
@@ -1209,11 +1290,56 @@ private fun YouTubePlayerOverlay(
                                 }
                             }
                             break
-                        } else {
-                            val dragY = change.position.y - downPos.y
-                            if (kotlin.math.abs(dragY) > 25f) {
-                                isDrag = true
-                                totalDragY = dragY
+                        } else if (pressedChanges.size >= 2 && onZoomChange != null) {
+                            // Multi-touch: PINCH TO ZOOM & PAN
+                            isPinch = true
+                            controlsVisible = false
+                            val p0 = pressedChanges[0].position
+                            val p1 = pressedChanges[1].position
+                            val dist = (p0 - p1).getDistance()
+                            val centroid = (p0 + p1) / 2f
+
+                            if (prevPinchDist > 0f) {
+                                val zoomFactor = dist / prevPinchDist
+                                val panDelta = centroid - prevCentroid
+                                val newScale = (currentScale * zoomFactor).coerceIn(1.0f, 4.0f)
+
+                                val maxOffsetX = (size.width.toFloat() * (newScale - 1f)) / 2f
+                                val maxOffsetY = (size.height.toFloat() * (newScale - 1f)) / 2f
+                                val newOffX = (currentOff.x + panDelta.x).coerceIn(-maxOffsetX, maxOffsetX)
+                                val newOffY = (currentOff.y + panDelta.y).coerceIn(-maxOffsetY, maxOffsetY)
+                                val newOffset = androidx.compose.ui.geometry.Offset(newOffX, newOffY)
+
+                                currentScale = newScale
+                                currentOff = newOffset
+                                onZoomChange(newScale, newOffset)
+                            }
+                            prevPinchDist = dist
+                            prevCentroid = centroid
+                            event.changes.forEach { it.consume() }
+                        } else if (pressedChanges.size == 1 && !isPinch) {
+                            val change = pressedChanges[0]
+                            val delta = change.position - downPos
+                            val deltaDistance = delta.getDistance()
+
+                            if (currentScale > 1.05f && onZoomChange != null) {
+                                if (deltaDistance > 10f) {
+                                    isDrag = true
+                                    val maxOffsetX = (size.width.toFloat() * (currentScale - 1f)) / 2f
+                                    val maxOffsetY = (size.height.toFloat() * (currentScale - 1f)) / 2f
+                                    val targetOffX = (dragStartOffset.x + delta.x).coerceIn(-maxOffsetX, maxOffsetX)
+                                    val targetOffY = (dragStartOffset.y + delta.y).coerceIn(-maxOffsetY, maxOffsetY)
+                                    val newOffset = androidx.compose.ui.geometry.Offset(targetOffX, targetOffY)
+                                    currentOff = newOffset
+                                    onZoomChange(currentScale, newOffset)
+                                    change.consume()
+                                }
+                            } else {
+                                val dragY = change.position.y - downPos.y
+                                if (kotlin.math.abs(dragY) > 25f) {
+                                    isDrag = true
+                                    totalDragY = dragY
+                                }
                             }
                         }
                     }
@@ -1285,6 +1411,26 @@ private fun YouTubePlayerOverlay(
                             tint = Color.White,
                             modifier = Modifier.size(28.dp),
                         )
+                    }
+
+                    if (zoomScale > 1.05f && onResetZoom != null) {
+                        Spacer(Modifier.width(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0x99CC0000),
+                            modifier = Modifier
+                                .clickable { onResetZoom() }
+                                .padding(horizontal = 4.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.ZoomOutMap, contentDescription = "Reset Zoom", tint = Color.White, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Reset Zoom", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
 
                     Spacer(Modifier.weight(1f))
@@ -1603,6 +1749,44 @@ private fun YouTubePlayerOverlay(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                     )
+                }
+            }
+        }
+
+        // Floating YouTube Zoom Pill (Center Top)
+        AnimatedVisibility(
+            visible = !zoomPillText.isNullOrEmpty(),
+            enter = fadeIn() + scaleIn(initialScale = 0.85f),
+            exit = fadeOut() + scaleOut(targetScale = 0.85f),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = if (isFullscreen) 24.dp else 12.dp),
+        ) {
+            zoomPillText?.let { label ->
+                Surface(
+                    color = Color(0xCC181818),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, Color(0x40FFFFFF)),
+                    shadowElevation = 6.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ZoomIn,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = label,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }
