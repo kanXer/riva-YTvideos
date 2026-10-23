@@ -15,6 +15,7 @@ import com.nexusdigital.rivavideo.data.SubtitleTrack
 import com.nexusdigital.rivavideo.data.VideoItem
 import com.nexusdigital.rivavideo.data.VideoRepository
 import com.nexusdigital.rivavideo.data.WatchHistoryItem
+import com.nexusdigital.rivavideo.data.parseRelativeAgeSeconds
 import com.nexusdigital.rivavideo.video.VideoPlayer
 import com.nexusdigital.rivavideo.video.VideoUiState
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +91,7 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
     private val _progress = MutableStateFlow(PlaybackProgress())
     val progress: StateFlow<PlaybackProgress> = _progress.asStateFlow()
 
-    enum class AppTab { HOME, SHORTS, DUBBED, PROFILE }
+    enum class AppTab { HOME, SHORTS, PROFILE }
 
     private val _currentTab = MutableStateFlow(AppTab.HOME)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
@@ -381,8 +382,6 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 playShortAtIndex(_activeShortIndex.value)
             }
-        } else if (tab == AppTab.DUBBED) {
-            loadCategory(Category("All Dubbed", "south indian hindi dubbed full movie blockbuster action mrbeast hindi"))
         } else if (tab == AppTab.HOME) {
             if (_feed.value.isEmpty()) {
                 loadCategory(_availableCategories.value.first())
@@ -610,23 +609,29 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
                     repo.fetchChannel(channelId)
                 } else {
                     val searchResults = repo.searchVideos(cName)
+                    val sortedSearch = searchResults
+                        .distinctBy { it.videoId }
+                        .sortedWith(compareBy { parseRelativeAgeSeconds(it.publishedTime) })
                     ChannelDetails(
                         channelId = channelId ?: "channel_$cName",
                         title = cName,
                         subscriberCount = "1.5M subscribers",
-                        videoCount = "${searchResults.size} videos",
-                        videos = searchResults,
+                        videoCount = "${sortedSearch.size} videos",
+                        videos = sortedSearch,
                     )
                 }
                 _activeChannel.value = details
             } catch (t: Throwable) {
                 val fallbackVideos = repo.searchVideos(cName)
+                val sortedFallback = fallbackVideos
+                    .distinctBy { it.videoId }
+                    .sortedWith(compareBy { parseRelativeAgeSeconds(it.publishedTime) })
                 _activeChannel.value = ChannelDetails(
                     channelId = channelId ?: "UC_fallback",
                     title = cName,
                     subscriberCount = "1.5M subscribers",
-                    videoCount = "${fallbackVideos.size} videos",
-                    videos = fallbackVideos,
+                    videoCount = "${sortedFallback.size} videos",
+                    videos = sortedFallback,
                 )
             } finally {
                 _channelLoading.value = false

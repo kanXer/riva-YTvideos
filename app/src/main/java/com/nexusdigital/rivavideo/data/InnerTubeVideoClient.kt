@@ -192,7 +192,7 @@ class InnerTubeVideoClient(
     }
 
     suspend fun fetchChannel(channelId: String): ChannelDetails = withContext(Dispatchers.IO) {
-        val body = buildJsonObject {
+        fun makeBrowseBody(params: String? = null) = buildJsonObject {
             put("context", buildJsonObject {
                 put("client", buildJsonObject {
                     put("clientName", JsonPrimitive(WEB_CLIENT_NAME))
@@ -202,23 +202,51 @@ class InnerTubeVideoClient(
                 })
             })
             put("browseId", JsonPrimitive(channelId))
+            if (params != null) {
+                put("params", JsonPrimitive(params))
+            }
         }
 
-        val root = executePost(
-            "$BASE/youtubei/v1/browse?prettyPrint=false",
-            body,
-            headers = mapOf(
-                "User-Agent" to WEB_UA,
-                "Origin" to "https://www.youtube.com",
-                "X-YouTube-Client-Name" to "1",
-                "X-YouTube-Client-Version" to WEB_CLIENT_VERSION,
-            ),
-        )
-        val parsed = json.parseToJsonElement(root).asJsonObjectOrNull()
-            ?: throw IOException("Channel data parse nahi hua")
+        // 1. First attempt: Fetch channel Videos tab (Latest uploads: newest to oldest)
+        var parsed: JsonObject? = null
+        try {
+            val root = executePost(
+                "$BASE/youtubei/v1/browse?prettyPrint=false",
+                makeBrowseBody("EgZ2aWRlb3PyBgQKAjoA"),
+                headers = mapOf(
+                    "User-Agent" to WEB_UA,
+                    "Origin" to "https://www.youtube.com",
+                    "X-YouTube-Client-Name" to "1",
+                    "X-YouTube-Client-Version" to WEB_CLIENT_VERSION,
+                ),
+            )
+            parsed = json.parseToJsonElement(root).asJsonObjectOrNull()
+        } catch (_: Throwable) {
+            // will fallback below
+        }
 
-        val header = parsed["header"]?.asJsonObjectOrNull()?.get("pageHeaderRenderer")?.asJsonObjectOrNull()
-            ?: parsed["header"]?.asJsonObjectOrNull()?.get("c4TabbedHeaderRenderer")?.asJsonObjectOrNull()
+        // 2. Fallback: If Videos tab failed or returned empty contents, fetch channel home
+        var homeParsed: JsonObject? = null
+        if (parsed == null || parsed["contents"] == null) {
+            val root = executePost(
+                "$BASE/youtubei/v1/browse?prettyPrint=false",
+                makeBrowseBody(null),
+                headers = mapOf(
+                    "User-Agent" to WEB_UA,
+                    "Origin" to "https://www.youtube.com",
+                    "X-YouTube-Client-Name" to "1",
+                    "X-YouTube-Client-Version" to WEB_CLIENT_VERSION,
+                ),
+            )
+            homeParsed = json.parseToJsonElement(root).asJsonObjectOrNull()
+                ?: throw IOException("Channel data parse nahi hua")
+            if (parsed == null) parsed = homeParsed
+        }
+
+        val header = parsed?.get("header")?.asJsonObjectOrNull()?.get("pageHeaderRenderer")?.asJsonObjectOrNull()
+            ?: parsed?.get("header")?.asJsonObjectOrNull()?.get("c4TabbedHeaderRenderer")?.asJsonObjectOrNull()
+            ?: homeParsed?.get("header")?.asJsonObjectOrNull()?.get("pageHeaderRenderer")?.asJsonObjectOrNull()
+            ?: homeParsed?.get("header")?.asJsonObjectOrNull()?.get("c4TabbedHeaderRenderer")?.asJsonObjectOrNull()
 
         val title = header?.get("pageTitle").asStringOrNull()
             ?: header?.get("title").asStringOrNull()
@@ -290,12 +318,33 @@ class InnerTubeVideoClient(
 
                         var views: String? = null
                         var pubTime: String? = null
-                        if (rows.size > 1) {
-                            val parts = rows[1].asJsonObjectOrNull()?.get("metadataParts")?.asJsonArrayOrNull().orEmpty()
-                            if (parts.isNotEmpty()) views = parts[0].asJsonObjectOrNull()?.get("text")?.asJsonObjectOrNull()?.get("content").asStringOrNull()
-                            if (parts.size > 1) pubTime = parts[1].asJsonObjectOrNull()?.get("text")?.asJsonObjectOrNull()?.get("content").asStringOrNull()
+                        for (row in rows) {
+                            val parts = row.asJsonObjectOrNull()?.get("metadataParts")?.asJsonArrayOrNull().orEmpty()
+                            for (p in parts) {
+                                val t = p.asJsonObjectOrNull()?.get("text")?.asJsonObjectOrNull()?.get("content").asStringOrNull()
+                                if (t != null) {
+                                    if (views == null && (t.contains("view", ignoreCase = true) || t.contains("watching", ignoreCase = true))) {
+                                        views = t
+                                    } else if (pubTime == null && (t.contains("ago", ignoreCase = true) || t.contains("streamed", ignoreCase = true) || t.contains("premier", ignoreCase = true) || t.contains("पहले", ignoreCase = true))) {
+                                        pubTime = t
+                                    }
+                                }
+                            }
                         }
-                        val thumb = lvm["contentImage"]?.asJsonObjectOrNull()
+
+                        var durMs = 180_000L
+                        val contentImg = lvm["contentImage"]?.asJsonObjectOrNull()
+                        val overlays = contentImg?.get("thumbnailViewModel")?.asJsonObjectOrNull()?.get("overlays")?.asJsonArrayOrNull().orEmpty()
+                        for (ov in overlays) {
+                            val badges = ov.asJsonObjectOrNull()?.get("thumbnailBottomOverlayViewModel")?.asJsonObjectOrNull()?.get("badges")?.asJsonArrayOrNull().orEmpty()
+                            for (b in badges) {
+                                val bText = b.asJsonObjectOrNull()?.get("thumbnailBadgeViewModel")?.asJsonObjectOrNull()?.get("text").asStringOrNull()
+                                val parsedDur = parseDuration(bText)
+                                if (parsedDur > 0L) durMs = parsedDur
+                            }
+                        }
+
+                        val thumb = contentImg
                             ?.get("thumbnailViewModel")?.asJsonObjectOrNull()
                             ?.get("image")?.asJsonObjectOrNull()
                             ?.get("sources")?.asJsonArrayOrNull()?.lastOrNull()
@@ -308,7 +357,7 @@ class InnerTubeVideoClient(
                                     videoId = vid,
                                     title = vTitle,
                                     channel = title,
-                                    durationMs = 180_000L,
+                                    durationMs = durMs,
                                     thumbnailUrl = thumb,
                                     viewCount = views,
                                     publishedTime = pubTime,
@@ -323,11 +372,20 @@ class InnerTubeVideoClient(
                     if (gvr != null) {
                         val vid = gvr["videoId"].asStringOrNull()
                         val vTitle = gvr["title"].asSimpleOrRunText()
-                        val views = gvr["shortViewCountText"].asSimpleOrRunText()
+                        val views = gvr["shortViewCountText"].asSimpleOrRunText() ?: gvr["viewCountText"].asSimpleOrRunText()
+                        val pubTime = gvr["publishedTimeText"].asSimpleOrRunText()
                         val thumb = gvr["thumbnail"]?.asJsonObjectOrNull()
                             ?.get("thumbnails")?.asJsonArrayOrNull()?.lastOrNull()
                             ?.asJsonObjectOrNull()?.get("url").asStringOrNull()
                             ?: "https://i.ytimg.com/vi/$vid/hqdefault.jpg"
+
+                        var durMs = 180_000L
+                        val overlays = gvr["thumbnailOverlays"]?.asJsonArrayOrNull().orEmpty()
+                        for (ov in overlays) {
+                            val t = ov.asJsonObjectOrNull()?.get("thumbnailOverlayTimeStatusRenderer")?.asJsonObjectOrNull()?.get("text").asSimpleOrRunText()
+                            val parsedDur = parseDuration(t)
+                            if (parsedDur > 0L) durMs = parsedDur
+                        }
 
                         if (!vid.isNullOrBlank() && !vTitle.isNullOrBlank()) {
                             videos.add(
@@ -335,9 +393,10 @@ class InnerTubeVideoClient(
                                     videoId = vid,
                                     title = vTitle,
                                     channel = title,
-                                    durationMs = 180_000L,
+                                    durationMs = durMs,
                                     thumbnailUrl = thumb,
                                     viewCount = views,
+                                    publishedTime = pubTime,
                                     channelThumbnailUrl = avatar,
                                     channelId = channelId,
                                 ),
@@ -357,17 +416,27 @@ class InnerTubeVideoClient(
             }
         }
 
-        extractVideos(parsed["contents"] ?: parsed)
+        extractVideos(parsed?.get("contents") ?: parsed ?: JsonObject(emptyMap()))
+
+        // If videos tab had 0 videos, extract from homeParsed if available
+        if (videos.isEmpty() && homeParsed != null) {
+            extractVideos(homeParsed["contents"] ?: homeParsed)
+        }
+
+        // Sort videos strictly date-wise: newest (smallest age seconds) to oldest
+        val sortedVideos = videos
+            .distinctBy { it.videoId }
+            .sortedWith(compareBy { parseRelativeAgeSeconds(it.publishedTime) })
 
         ChannelDetails(
             channelId = channelId,
             title = title,
             handle = handle,
             subscriberCount = subCount ?: "Subscribers",
-            videoCount = videoCount ?: "${videos.size} videos",
+            videoCount = videoCount ?: "${sortedVideos.size} videos",
             avatarUrl = avatar,
             bannerUrl = banner,
-            videos = videos.distinctBy { it.videoId },
+            videos = sortedVideos,
         )
     }
 

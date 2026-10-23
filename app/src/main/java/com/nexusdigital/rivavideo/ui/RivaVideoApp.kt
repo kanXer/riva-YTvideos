@@ -147,6 +147,8 @@ import com.nexusdigital.rivavideo.data.VideoItem
 import com.nexusdigital.rivavideo.data.VideoQualityTrack
 import com.nexusdigital.rivavideo.data.WatchHistoryItem
 import com.nexusdigital.rivavideo.data.formatDuration
+import com.nexusdigital.rivavideo.data.parseRelativeAgeSeconds
+import com.nexusdigital.rivavideo.data.parseViews
 import com.nexusdigital.rivavideo.video.VideoUiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -196,8 +198,7 @@ fun RivaVideoApp(viewModel: RivaVideoViewModel) {
                     .fillMaxWidth(),
             ) {
                 when (currentTab) {
-                    RivaVideoViewModel.AppTab.HOME,
-                    RivaVideoViewModel.AppTab.DUBBED -> {
+                    RivaVideoViewModel.AppTab.HOME -> {
                         YouTubeHomeScreen(
                             dark = dark,
                             feed = feed,
@@ -723,11 +724,6 @@ private fun YouTubeWatchScreen(
                 showAudioLanguageDialog = false
             },
             onDismiss = { showAudioLanguageDialog = false },
-            onExploreMultiAudio = {
-                showAudioLanguageDialog = false
-                viewModel.selectTab(RivaVideoViewModel.AppTab.DUBBED)
-                onClose()
-            },
         )
     }
 
@@ -2207,7 +2203,6 @@ private fun AudioLanguageDialog(
     selectedName: String?,
     onSelect: (AudioLanguageTrack) -> Unit,
     onDismiss: () -> Unit,
-    onExploreMultiAudio: () -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2282,22 +2277,10 @@ private fun AudioLanguageDialog(
                     ) {
                         Column(Modifier.padding(10.dp)) {
                             Text(
-                                text = "💡 YouTube par har video me multiple audio tracks nahi hote. Zyadatar songs me sirf Original audio hoti hai.",
+                                text = "💡 YouTube par har video me multiple audio tracks nahi hote. Agar creator ne multiple dubbed audios upload ki hain to yahan list hoti hain.",
                                 color = RivaL.textDim(dark),
                                 fontSize = 11.sp,
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Button(
-                                onClick = {
-                                    onDismiss()
-                                    onExploreMultiAudio()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = RivaL.red(dark)),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("Multi-Audio Videos Dekhein (MrBeast / Dubbed) 🎬", fontSize = 11.sp)
-                            }
                         }
                     }
                 }
@@ -2786,31 +2769,6 @@ private fun YouTubeBottomNavBar(
                     )
                 }
 
-                // Multi-Audio (Dubbed)
-                val isDubbed = currentTab == RivaVideoViewModel.AppTab.DUBBED
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelectTab(RivaVideoViewModel.AppTab.DUBBED) }
-                        .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Translate,
-                        contentDescription = "Multi-Audio",
-                        tint = if (isDubbed) RivaL.red(dark) else RivaL.textDim(dark),
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = "Multi-Audio",
-                        color = if (isDubbed) RivaL.text(dark) else RivaL.textDim(dark),
-                        fontSize = 11.sp,
-                        fontWeight = if (isDubbed) FontWeight.Bold else FontWeight.Medium,
-                    )
-                }
-
                 // Profile / You
                 val isProfile = currentTab == RivaVideoViewModel.AppTab.PROFILE
                 Column(
@@ -2851,6 +2809,16 @@ private fun YouTubeChannelScreen(
     onToggleSubscribe: () -> Unit,
     onVideoClick: (VideoItem) -> Unit,
 ) {
+    var selectedSortTab by remember { mutableStateOf("Latest") }
+
+    val displayedVideos = remember(channel.videos, selectedSortTab) {
+        when (selectedSortTab) {
+            "Popular" -> channel.videos.sortedWith(compareByDescending { parseViews(it.viewCount) })
+            "Oldest" -> channel.videos.sortedWith(compareByDescending { parseRelativeAgeSeconds(it.publishedTime) })
+            else -> channel.videos.sortedWith(compareBy { parseRelativeAgeSeconds(it.publishedTime) }) // "Latest" (New to Old)
+        }
+    }
+
     BackHandler(enabled = true) {
         onClose()
     }
@@ -3029,11 +2997,47 @@ private fun YouTubeChannelScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // YouTube Style Filter Chips: Latest (New to Old) / Popular / Oldest
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf("Latest", "Popular", "Oldest").forEach { tab ->
+                            val isSelected = selectedSortTab == tab
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isSelected) {
+                                            if (dark) Color.White else Color.Black
+                                        } else {
+                                            if (dark) Color(0xFF272727) else Color(0xFFE5E5E5)
+                                        }
+                                    )
+                                    .clickable { selectedSortTab = tab }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                            ) {
+                                Text(
+                                    text = tab,
+                                    color = if (isSelected) {
+                                        if (dark) Color.Black else Color.White
+                                    } else {
+                                        RivaL.text(dark)
+                                    },
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             // 3. Channel Videos
-            if (loading && channel.videos.isEmpty()) {
+            if (loading && displayedVideos.isEmpty()) {
                 item(key = "channel_loading") {
                     Box(
                         modifier = Modifier
@@ -3044,7 +3048,7 @@ private fun YouTubeChannelScreen(
                         CircularProgressIndicator(color = RivaL.red(dark), strokeWidth = 3.dp)
                     }
                 }
-            } else if (channel.videos.isEmpty()) {
+            } else if (displayedVideos.isEmpty()) {
                 item(key = "channel_empty") {
                     Box(
                         modifier = Modifier
@@ -3059,7 +3063,7 @@ private fun YouTubeChannelScreen(
                     }
                 }
             } else {
-                itemsIndexed(channel.videos, key = { _, video -> "ch_vid_${video.videoId}" }) { _, video ->
+                itemsIndexed(displayedVideos, key = { _, video -> "ch_vid_${video.videoId}" }) { _, video ->
                     YouTubeVideoCard(
                         item = video,
                         dark = dark,

@@ -226,3 +226,75 @@ fun formatDuration(ms: Long): String {
     val sec = s % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
+
+/**
+ * Approximate age of a video in seconds from relative strings like:
+ * "5 minutes ago", "3 hours ago", "2 days ago", "1 week ago", "4 months ago", "2 years ago"
+ * Supports English and Hindi phrases.
+ * Returns 0 for "Just now" / live, and Long.MAX_VALUE - 1000L for unknown.
+ */
+fun parseRelativeAgeSeconds(pubTime: String?): Long {
+    if (pubTime.isNullOrBlank()) return Long.MAX_VALUE - 1000L
+    val lower = pubTime.lowercase().trim()
+    if (lower.contains("just now") || lower.contains("live") || lower.contains("watching") ||
+        lower.contains("premieres") || lower.contains("premiere") || lower.contains("अभी") || lower.contains("लाइव")
+    ) {
+        return 0L
+    }
+
+    // Number followed by time unit
+    val regex = Regex("""(\d+)\s*(second|minute|hour|day|week|month|year|सेकंड|मिनट|घंटे|घंटा|दिन|हफ्ते|हफ़्ते|सप्ताह|महीने|महीना|साल|वर्ष)""")
+    val match = regex.find(lower)
+    if (match != null) {
+        val count = match.groupValues[1].toLongOrNull() ?: 1L
+        val unit = match.groupValues[2]
+        val mult = when {
+            unit.startsWith("second") || unit.contains("सेकंड") -> 1L
+            unit.startsWith("minute") || unit.contains("मिनट") -> 60L
+            unit.startsWith("hour") || unit.contains("घंट") -> 3600L
+            unit.startsWith("day") || unit.contains("दिन") -> 86400L
+            unit.startsWith("week") || unit.contains("हफ्त") || unit.contains("सप्ताह") -> 7L * 86400L
+            unit.startsWith("month") || unit.contains("महीन") -> 30L * 86400L
+            unit.startsWith("year") || unit.contains("साल") || unit.contains("वर्ष") -> 365L * 86400L
+            else -> 86400L
+        }
+        return count * mult
+    }
+
+    // Single unit e.g. "a day ago", "an hour ago", "a month ago"
+    val singleRegex = Regex("""(a|an|one|ek|ik)\s*(second|minute|hour|day|week|month|year)""")
+    val singleMatch = singleRegex.find(lower)
+    if (singleMatch != null) {
+        val unit = singleMatch.groupValues[2]
+        return when {
+            unit.startsWith("second") -> 1L
+            unit.startsWith("minute") -> 60L
+            unit.startsWith("hour") -> 3600L
+            unit.startsWith("day") -> 86400L
+            unit.startsWith("week") -> 7L * 86400L
+            unit.startsWith("month") -> 30L * 86400L
+            unit.startsWith("year") -> 365L * 86400L
+            else -> 86400L
+        }
+    }
+
+    return Long.MAX_VALUE - 1000L
+}
+
+/** Parses views like "132M views", "50K views", "1.2B views", "701 views" to numeric count for sorting. */
+fun parseViews(viewsStr: String?): Long {
+    if (viewsStr.isNullOrBlank()) return 0L
+    val clean = viewsStr.lowercase().replace(",", "").replace("views", "").replace("view", "").trim()
+    val regex = Regex("""([\d.]+)\s*([kmbcr]?)""")
+    val match = regex.find(clean) ?: return 0L
+    val num = match.groupValues[1].toDoubleOrNull() ?: 0.0
+    val suffix = match.groupValues[2]
+    val mult = when (suffix) {
+        "k" -> 1_000.0
+        "m" -> 1_000_000.0
+        "b" -> 1_000_000_000.0
+        "cr" -> 10_000_000.0 // crore in Indian notation
+        else -> 1.0
+    }
+    return (num * mult).toLong()
+}
