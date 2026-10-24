@@ -52,13 +52,13 @@ class VideoPlayer(private val appContext: Context) {
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 30_000,
-                /* maxBufferMs = */ 120_000,
-                /* bufferForPlaybackMs = */ 1_000,
-                /* bufferForPlaybackAfterRebufferMs = */ 3_000,
+                /* minBufferMs = */ 15_000,
+                /* maxBufferMs = */ 50_000,
+                /* bufferForPlaybackMs = */ 500,
+                /* bufferForPlaybackAfterRebufferMs = */ 1_000,
             )
             .setBackBuffer(
-                /* backBufferDurationMs = */ 60_000,
+                /* backBufferDurationMs = */ 30_000,
                 /* retainBackBufferFromKeyframe = */ true,
             )
             .setPrioritizeTimeOverSizeThresholds(true)
@@ -86,8 +86,8 @@ class VideoPlayer(private val appContext: Context) {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(25_000)
+            .setConnectTimeoutMs(8_000)
+            .setReadTimeoutMs(15_000)
             .setKeepPostFor302Redirects(true)
 
         if (resolution.headers.isNotEmpty()) {
@@ -134,7 +134,15 @@ class VideoPlayer(private val appContext: Context) {
         val activeVideoUrl = videoUrlOverride ?: resolution.videoUrl
 
         val mediaSource: MediaSource = when {
-            // 1. Adaptive separate video + audio streams (merged seamlessly)
+            // 1. HLS Master Playlist (Priority 1: Zero buffering, unthrottled CDN, adaptive multi-bitrate)
+            !resolution.hlsUrl.isNullOrEmpty() && audioUrlOverride == null && videoUrlOverride == null -> {
+                val item = baseMediaItem.setUri(resolution.hlsUrl).build()
+                HlsMediaSource.Factory(dataSourceFactory)
+                    .setAllowChunklessPreparation(true)
+                    .createMediaSource(item)
+            }
+
+            // 2. Adaptive separate video + audio streams (merged seamlessly)
             !activeVideoUrl.isNullOrEmpty() && !activeAudioUrl.isNullOrEmpty() -> {
                 val videoItem = MediaItem.Builder()
                     .setMediaId("${videoId}_v")
@@ -150,12 +158,6 @@ class VideoPlayer(private val appContext: Context) {
                 val videoSource = ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(videoItem)
                 val audioSource = ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(audioItem)
                 MergingMediaSource(videoSource, audioSource)
-            }
-
-            // 2. HLS Master Playlist (Adaptive multi-bitrate)
-            !resolution.hlsUrl.isNullOrEmpty() && audioUrlOverride == null && videoUrlOverride == null -> {
-                val item = baseMediaItem.setUri(resolution.hlsUrl).build()
-                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(item)
             }
 
             // 3. Direct muxed mp4 (video + audio ek saath)
@@ -232,6 +234,17 @@ class VideoPlayer(private val appContext: Context) {
             itag = quality.itag,
         )
         currentResolution = updatedRes
+
+        if (!res.hlsUrl.isNullOrEmpty()) {
+            // In HLS, switch video resolution smoothly using track selection parameters without interruption
+            val targetW = quality.height * 16 / 9
+            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+                .setMaxVideoSize(targetW + 120, quality.height)
+                .setMinVideoSize(targetW - 120, quality.height)
+                .build()
+            return
+        }
+
         playStream(
             videoId = videoId,
             title = title,

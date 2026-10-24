@@ -35,6 +35,16 @@ data class ChannelDetails(
     val videos: List<VideoItem> = emptyList(),
 )
 
+data class ChannelSearchResult(
+    val channelId: String,
+    val title: String,
+    val handle: String? = null,
+    val subscriberCount: String? = null,
+    val videoCount: String? = null,
+    val avatarUrl: String? = null,
+    val description: String? = null,
+)
+
 data class ShortItem(
     val videoId: String,
     val title: String,

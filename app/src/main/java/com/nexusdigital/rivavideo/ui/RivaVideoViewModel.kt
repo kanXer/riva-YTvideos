@@ -8,6 +8,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import com.nexusdigital.rivavideo.data.AudioLanguageTrack
 import com.nexusdigital.rivavideo.data.ChannelDetails
+import com.nexusdigital.rivavideo.data.ChannelSearchResult
 import com.nexusdigital.rivavideo.data.OfflineVideoItem
 import com.nexusdigital.rivavideo.data.RegionPreference
 import com.nexusdigital.rivavideo.data.ShortItem
@@ -20,6 +21,9 @@ import com.nexusdigital.rivavideo.video.VideoPlayer
 import com.nexusdigital.rivavideo.video.VideoUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +85,19 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
     private val _searchText = MutableStateFlow("")
     val searchText: StateFlow<String> = _searchText.asStateFlow()
 
+    enum class SearchType { VIDEOS, CHANNELS }
+    private val _searchType = MutableStateFlow(SearchType.VIDEOS)
+    val searchType: StateFlow<SearchType> = _searchType.asStateFlow()
+
+    private val _channelResults = MutableStateFlow<List<ChannelSearchResult>>(emptyList())
+    val channelResults: StateFlow<List<ChannelSearchResult>> = _channelResults.asStateFlow()
+
+    private val _channelSearching = MutableStateFlow(false)
+    val channelSearching: StateFlow<Boolean> = _channelSearching.asStateFlow()
+
+    private val _isPlayerMinimized = MutableStateFlow(false)
+    val isPlayerMinimized: StateFlow<Boolean> = _isPlayerMinimized.asStateFlow()
+
     /** Null = watch screen close; non-null = settle index. */
     private val _watchIndex = MutableStateFlow<Int?>(null)
     val watchIndex: StateFlow<Int?> = _watchIndex.asStateFlow()
@@ -101,6 +118,14 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _shortsLoading = MutableStateFlow(false)
     val shortsLoading: StateFlow<Boolean> = _shortsLoading.asStateFlow()
+
+    /** Har successful refresh par +1 — UI pager ko top reel par reset karne ke liye. */
+    private val _shortsRefreshToken = MutableStateFlow(0)
+    val shortsRefreshToken: StateFlow<Int> = _shortsRefreshToken.asStateFlow()
+
+    /** Shorts immersive mode: sirf video, saare buttons/info hidden (page change par bhi bana rehta hai). */
+    private val _isShortsFullscreen = MutableStateFlow(false)
+    val isShortsFullscreen: StateFlow<Boolean> = _isShortsFullscreen.asStateFlow()
 
     private val _activeShortIndex = MutableStateFlow(0)
     val activeShortIndex: StateFlow<Int> = _activeShortIndex.asStateFlow()
@@ -125,7 +150,12 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
 
     private var feedJob: Job? = null
     private var resolveJob: Job? = null
+    private var shortsJob: Job? = null
     private var loadedVideoId: String? = null
+
+    /** Session me pehle dikh chuke reels — refresh par wahi video dobara na aaye. */
+    private val shownShortIds = LinkedHashSet<String>()
+    private var shortsRefreshCount = 0
 
     init {
         exoListeners()
@@ -215,17 +245,59 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
         _searchText.value = value
     }
 
+    fun setSearchType(type: SearchType) {
+        _searchType.value = type
+        if (type == SearchType.CHANNELS && _channelResults.value.isEmpty()) {
+            val q = _searchText.value.ifBlank { _activeCategory.value.query }
+            if (q.isNotBlank()) searchChannels(q)
+        }
+    }
+
+    fun searchChannels(query: String) {
+        val q = query.trim()
+        if (q.isBlank()) return
+        _channelSearching.value = true
+        viewModelScope.launch {
+            try {
+                _channelResults.value = repo.searchChannels(q)
+            } catch (_: Throwable) {
+                _channelResults.value = emptyList()
+            } finally {
+                _channelSearching.value = false
+            }
+        }
+    }
+
     fun submitSearch() {
         val text = _searchText.value.trim()
         if (text.isEmpty()) return
-        loadCategory(Category(label = text, query = text))
+        if (_searchType.value == SearchType.CHANNELS) {
+            searchChannels(text)
+        } else {
+            loadCategory(Category(label = text, query = text))
+        }
     }
 
     fun openWatch(index: Int) {
+        _isPlayerMinimized.value = false
         _watchIndex.value = index
     }
 
+    fun minimizePlayer() {
+        _isPlayerMinimized.value = true
+    }
+
+    fun expandPlayer() {
+        _isPlayerMinimized.value = false
+    }
+
+    fun closeMiniPlayer() {
+        _isPlayerMinimized.value = false
+        closeWatch()
+    }
+
     fun closeWatch() {
+        _isPlayerMinimized.value = false
         resolveJob?.cancel()
         playerHolder.exoPlayer.pause()
         _watchIndex.value = null
@@ -376,6 +448,9 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(tab: AppTab) {
         _currentTab.value = tab
+        if (tab != AppTab.SHORTS) {
+            _isShortsFullscreen.value = false
+        }
         if (tab == AppTab.SHORTS) {
             if (_shorts.value.isEmpty()) {
                 loadShorts()
@@ -387,6 +462,15 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
                 loadCategory(_availableCategories.value.first())
             }
         }
+    }
+
+    /** Shorts fullscreen/immersive mode toggle — pager change par state barkarar rehti hai. */
+    fun toggleShortsFullscreen() {
+        _isShortsFullscreen.value = !_isShortsFullscreen.value
+    }
+
+    fun exitShortsFullscreen() {
+        _isShortsFullscreen.value = false
     }
 
     fun openRegionPicker() {
@@ -519,20 +603,97 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
         } catch (_: Throwable) {}
     }
 
+    private fun buildShortsQueries(): List<String> {
+        val monthYear = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.ENGLISH)
+            .format(java.util.Date())
+        return listOf(
+            // "today / latest" + upload-date sorting = har refresh par naye, latest reels
+            "#shorts today",
+            "#shorts latest",
+            "#shorts trending today",
+            "#shorts viral today",
+            "#shorts new",
+            "#shorts india today",
+            "#reels trending today",
+            "#shorts trending now",
+            "#shorts explore today",
+            "#shorts $monthYear",
+            "#ytshorts today",
+            "#shorts latest viral",
+        )
+    }
+
     fun loadShorts() {
-        viewModelScope.launch {
+        shortsJob?.cancel()
+        shortsJob = viewModelScope.launch {
             _shortsLoading.value = true
             try {
-                val list = repo.fetchShorts()
-                _shorts.value = list
-                if (list.isNotEmpty()) {
-                    playShortAtIndex(0)
+                val queries = buildShortsQueries()
+                val collected = linkedMapOf<String, ShortItem>()
+                val startOffset = shortsRefreshCount
+                var usedQueries = 0
+                var fresh = emptyList<ShortItem>()
+
+                // Pehle 2 queries kaafi hoti hain. Agar sab videos pehle dikh chuke hain
+                // to agle 2 queries try karein taaki refresh par naya content hi aaye.
+                while (usedQueries < 4 && fresh.size < 8) {
+                    val batchSize = minOf(2, queries.size - usedQueries)
+                    if (batchSize <= 0) break
+                    val batch = (0 until batchSize).map { i ->
+                        queries[(startOffset + usedQueries + i) % queries.size]
+                    }
+                    val fetched = fetchShortsBatch(batch)
+                    fetched.forEach { short -> collected.putIfAbsent(short.videoId, short) }
+                    fresh = collected.values.filterNot { it.videoId in shownShortIds }
+                    usedQueries += batchSize
+                }
+
+                shortsRefreshCount = (startOffset + usedQueries) % queries.size
+
+                if (fresh.isEmpty() && collected.isNotEmpty()) {
+                    // Poora cycle dekh liya — naya cycle shuru karein.
+                    shownShortIds.clear()
+                    fresh = collected.values.toList()
+                }
+
+                if (fresh.isNotEmpty()) {
+                    fresh.forEach { shownShortIds.add(it.videoId) }
+                    trimShownShortIds()
+                    _shorts.value = fresh
+                    _activeShortIndex.value = 0
+                    _shortsRefreshToken.value += 1
+
+                    // Sirf tab auto-play karein jab user Shorts tab par ho.
+                    if (_currentTab.value == AppTab.SHORTS) {
+                        playShortAtIndex(0)
+                    }
                 }
             } catch (t: Throwable) {
-                // Ignore transient errors
+                if (t is kotlinx.coroutines.CancellationException) throw t
             } finally {
                 _shortsLoading.value = false
             }
+        }
+    }
+
+    private suspend fun fetchShortsBatch(queries: List<String>): List<ShortItem> =
+        coroutineScope {
+            queries.distinct().map { query ->
+                async(Dispatchers.IO) {
+                    runCatching {
+                        // CAI%3D = YouTube search sort by upload date (newest first)
+                        repo.fetchShorts(query = query, params = "CAI%3D")
+                    }.getOrDefault(emptyList())
+                }
+            }.awaitAll().flatten().distinctBy { it.videoId }
+        }
+
+    private fun trimShownShortIds() {
+        while (shownShortIds.size > 2000) {
+            val iterator = shownShortIds.iterator()
+            if (!iterator.hasNext()) break
+            iterator.next()
+            iterator.remove()
         }
     }
 
@@ -540,12 +701,19 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
         val list = _shorts.value
         if (index in list.indices) {
             _activeShortIndex.value = index
-            playShortAtIndex(index)
+            val short = list[index]
+            if (loadedVideoId != short.videoId ||
+                _ui.value.videoId != short.videoId ||
+                _ui.value.error != null
+            ) {
+                playShortAtIndex(index)
+            }
         }
     }
 
     private fun playShortAtIndex(index: Int) {
         val short = _shorts.value.getOrNull(index) ?: return
+        loadedVideoId = short.videoId
         resolveJob?.cancel()
         resolveJob = viewModelScope.launch {
             _isResolving.value = true
@@ -574,9 +742,12 @@ class RivaVideoViewModel(app: Application) : AndroidViewModel(app) {
                     availableSubtitles = resolution.subtitles,
                     availableAudioLanguages = resolution.audioLanguages,
                     selectedAudioLanguage = resolution.audioLanguages.firstOrNull()?.name ?: "Original",
+                    isSubtitlesEnabled = false,
+                    selectedSubtitleLang = null,
                     error = null,
                 )
             } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 _ui.value = _ui.value.copy(
                     error = "Streaming failed: ${t.message ?: "Stream resolve nahi hua"}",
                     isBuffering = false,

@@ -1,31 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- YouTube Rounded Button (Black with subtle border) -->
     <path
-        android:pathData="M31,64 L31,46"
-        android:strokeColor="#C9F45A"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
+        android:fillColor="#181818"
+        android:strokeColor="#3A3A3C"
+        android:strokeWidth="1.5"
+        android:pathData="M37,34 L71,34 A11,11 0,0,1 82,45 L82,63 A11,11 0,0,1 71,74 L37,74 A11,11 0,0,1 26,63 L26,45 A11,11 0,0,1 37,34 Z" />
+    <!-- White Play Triangle -->
     <path
-        android:pathData="M43,72 L43,38"
-        android:strokeColor="#C9F45A"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M55,66 L55,44"
-        android:strokeColor="#7DD3FC"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M67,76 L67,34"
-        android:strokeColor="#C9F45A"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M79,61 L79,49"
-        android:strokeColor="#FF7F8F"
-        android:strokeWidth="7"
-        android:strokeLineCap="round" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,44 L64,54 L48,64 Z" />
 </vector>

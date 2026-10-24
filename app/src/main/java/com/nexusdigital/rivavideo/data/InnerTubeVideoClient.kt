@@ -33,8 +33,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
  *   5. Fallback to HLS or direct muxed streams if adaptive is unavailable.
  */
 class InnerTubeVideoClient(
-    private val http: OkHttpClient = defaultHttp(),
+    private val http: OkHttpClient = NetworkModule.getOkHttpClient(),
 ) {
+    private val proxyManager: YouTubeProxyManager by lazy { YouTubeProxyManager(this, http) }
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     @Volatile
@@ -75,7 +76,7 @@ class InnerTubeVideoClient(
             .distinctBy { it.videoId }
     }
 
-    suspend fun fetchShorts(query: String = "#shorts viral trending"): List<ShortItem> = withContext(Dispatchers.IO) {
+    suspend fun searchChannels(query: String): List<ChannelSearchResult> = withContext(Dispatchers.IO) {
         val body = buildJsonObject {
             put("context", buildJsonObject {
                 put("client", buildJsonObject {
@@ -86,6 +87,85 @@ class InnerTubeVideoClient(
                 })
             })
             put("query", JsonPrimitive(query))
+            // YouTube InnerTube official channel-only filter
+            put("params", JsonPrimitive("EgIQAg%3D%3D"))
+        }
+        val root = executePost(
+            "$BASE/youtubei/v1/search?prettyPrint=false",
+            body,
+            headers = mapOf(
+                "User-Agent" to WEB_UA,
+                "Origin" to "https://www.youtube.com",
+                "X-YouTube-Client-Name" to "1",
+                "X-YouTube-Client-Version" to WEB_CLIENT_VERSION,
+            ),
+        )
+        val parsed = json.parseToJsonElement(root).asJsonObjectOrNull() ?: return@withContext emptyList()
+        val channels = mutableListOf<ChannelSearchResult>()
+
+        fun extract(e: JsonElement) {
+            when (e) {
+                is JsonObject -> {
+                    val cr = e["channelRenderer"]?.asJsonObjectOrNull()
+                    if (cr != null) {
+                        val cid = cr["channelId"].asStringOrNull()
+                        val title = cr["title"].asSimpleOrRunText()
+                        val subText = cr["subscriberCountText"].asSimpleOrRunText()
+                        val videoText = cr["videoCountText"].asSimpleOrRunText()
+                        var avatar = cr["thumbnail"]?.asJsonObjectOrNull()
+                            ?.get("thumbnails")?.asJsonArrayOrNull()?.lastOrNull()
+                            ?.asJsonObjectOrNull()?.get("url").asStringOrNull()
+                        if (avatar != null && avatar.startsWith("//")) {
+                            avatar = "https:$avatar"
+                        }
+                        val desc = cr["descriptionSnippet"].asSimpleOrRunText()
+
+                        var handle: String? = null
+                        var subscribers: String? = subText
+                        if (subText != null && subText.startsWith("@")) {
+                            handle = subText
+                            subscribers = videoText
+                        }
+
+                        if (!cid.isNullOrBlank() && !title.isNullOrBlank()) {
+                            channels.add(
+                                ChannelSearchResult(
+                                    channelId = cid,
+                                    title = title,
+                                    handle = handle,
+                                    subscriberCount = subscribers,
+                                    videoCount = videoText,
+                                    avatarUrl = avatar,
+                                    description = desc,
+                                ),
+                            )
+                        }
+                    }
+                    e.values.forEach(::extract)
+                }
+                is JsonArray -> e.forEach(::extract)
+                else -> Unit
+            }
+        }
+
+        extract(parsed)
+        channels.distinctBy { it.channelId }
+    }
+
+    suspend fun fetchShorts(query: String = "#shorts viral trending", params: String? = null): List<ShortItem> = withContext(Dispatchers.IO) {
+        val body = buildJsonObject {
+            put("context", buildJsonObject {
+                put("client", buildJsonObject {
+                    put("clientName", JsonPrimitive(WEB_CLIENT_NAME))
+                    put("clientVersion", JsonPrimitive(WEB_CLIENT_VERSION))
+                    put("hl", JsonPrimitive("en"))
+                    put("gl", JsonPrimitive("IN"))
+                })
+            })
+            put("query", JsonPrimitive(query))
+            if (params != null) {
+                put("params", JsonPrimitive(params))
+            }
         }
         val root = executePost(
             "$BASE/youtubei/v1/search?prettyPrint=false",
@@ -476,16 +556,59 @@ class InnerTubeVideoClient(
         }
     }
 
-    suspend fun resolveStream(videoId: String): StreamResolution = withContext(Dispatchers.IO) {
+    suspend fun resolveStream(videoId: String): StreamResolution =
+        resolveStreamInternal(videoId, proxyClient = null, allowProxyFallback = true)
+
+    /** Proxy client ke saath resolve — YouTubeProxyManager ka validation path. */
+    suspend fun resolveStream(videoId: String, proxyClient: OkHttpClient): StreamResolution =
+        resolveStreamInternal(videoId, proxyClient = proxyClient, allowProxyFallback = false)
+
+    private suspend fun resolveStreamInternal(
+        videoId: String,
+        proxyClient: OkHttpClient?,
+        allowProxyFallback: Boolean,
+    ): StreamResolution = withContext(Dispatchers.IO) {
         val errors = mutableListOf<String>()
-        for (client in playbackClients) {
-            try {
-                val resolution = requestPlayer(videoId, client)
-                if (resolution != null) return@withContext resolution
-            } catch (t: Throwable) {
-                errors += "${client.name}: ${t.message ?: t.javaClass.simpleName}"
+
+        // Use cached visitorData if available without blocking video load with heavy HTML fetch
+        var sessionVd: String? = YouTubeSession.currentVisitorData()
+
+        for (pass in 0 until 2) {
+            val errorsBefore = errors.size
+            for (client in playbackClients) {
+                try {
+                    val resolution = requestPlayer(videoId, client, proxyClient, sessionVd)
+                    if (resolution != null) return@withContext resolution
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    errors += "${client.name}: ${t.message ?: t.javaClass.simpleName}"
+                }
+            }
+
+            val botBlocked = errors.drop(errorsBefore).any { message ->
+                message.contains("confirm you", ignoreCase = true) ||
+                    message.contains("not a bot", ignoreCase = true)
+            }
+            if (pass == 0 && botBlocked && proxyClient == null) {
+                // Session refresh karke ek aur round direct clients try karte hain
+                sessionVd = YouTubeSession.refresh(videoId)
+                    ?: YouTubeSession.currentVisitorData()
+                    ?: sessionVd
+                continue
+            }
+            break
+        }
+
+        // Musify defence layer: Direct fail hone par free proxy pool se try (allowWhenDisabled pattern)
+        if (allowProxyFallback && proxyClient == null) {
+            Log.w(TAG, "Direct stream resolution failed ($errors), trying YouTubeProxyManager fallback...")
+            val viaProxy = proxyManager.resolveViaProxy(videoId)
+            if (viaProxy != null) {
+                Log.i(TAG, "Successfully resolved stream via proxy!")
+                return@withContext viaProxy
             }
         }
+
         throw IOException(
             buildString {
                 append("Video stream resolve nahi hua. ")
@@ -595,8 +718,13 @@ class InnerTubeVideoClient(
         ),
     )
 
-    private fun requestPlayer(videoId: String, client: PlaybackClient): StreamResolution? {
-        val visitor = getOrFetchVisitorData()
+    private fun requestPlayer(
+        videoId: String,
+        client: PlaybackClient,
+        proxyClient: OkHttpClient? = null,
+        sessionVd: String? = null,
+    ): StreamResolution? {
+        val visitor = sessionVd ?: getOrFetchVisitorData()
         val body = buildJsonObject {
             put("context", buildJsonObject {
                 put("client", buildJsonObject {
@@ -627,7 +755,7 @@ class InnerTubeVideoClient(
         headers.putAll(client.requestHeaders)
 
         val root = json.parseToJsonElement(
-            executePost(client.url, body, headers = headers),
+            executePost(client.url, body, headers = headers, customHttp = proxyClient),
         ).asJsonObjectOrNull() ?: return null
 
         val status = root["playabilityStatus"]?.asJsonObjectOrNull()
@@ -811,6 +939,25 @@ class InnerTubeVideoClient(
             ?: qualityTracks.firstOrNull { it.height >= 480 }
             ?: qualityTracks.firstOrNull()
 
+        // 4. PRIORITY 1: HLS Adaptive Master Playlist (Unthrottled Google/Akamai CDN edge, instant start, zero buffering)
+        if (!hlsManifestUrl.isNullOrEmpty()) {
+            return StreamResolution(
+                videoUrl = bestHdTrack?.url,
+                audioUrl = bestAudioUrl,
+                hlsUrl = hlsManifestUrl,
+                isMuxed = false,
+                mimeType = "application/x-mpegURL",
+                itag = bestHdTrack?.itag ?: 0,
+                qualityLabel = bestHdTrack?.qualityLabel ?: "720p HD",
+                userAgent = client.userAgent,
+                headers = client.playbackHeaders,
+                subtitles = subtitleTracks,
+                audioLanguages = audioLanguages,
+                availableQualities = effectiveQualities,
+            )
+        }
+
+        // 5. PRIORITY 2: HD Adaptive Stream (Direct separate video + audio fallback)
         if (bestHdTrack != null && bestAudioUrl != null) {
             Log.d(TAG, "Playing Adaptive HD Stream: video=${bestHdTrack.qualityLabel} (itag ${bestHdTrack.itag}), audio=${audioCandidate?.get("itag")}, qualities=${effectiveQualities.size}")
             return StreamResolution(
@@ -821,24 +968,6 @@ class InnerTubeVideoClient(
                 mimeType = bestHdTrack.mimeType,
                 itag = bestHdTrack.itag,
                 qualityLabel = bestHdTrack.qualityLabel,
-                userAgent = client.userAgent,
-                headers = client.playbackHeaders,
-                subtitles = subtitleTracks,
-                audioLanguages = audioLanguages,
-                availableQualities = effectiveQualities,
-            )
-        }
-
-        // 5. PRIORITY 2: HLS Adaptive Master Playlist
-        if (!hlsManifestUrl.isNullOrEmpty()) {
-            return StreamResolution(
-                videoUrl = null,
-                audioUrl = null,
-                hlsUrl = hlsManifestUrl,
-                isMuxed = false,
-                mimeType = "application/x-mpegURL",
-                itag = 0,
-                qualityLabel = "HD Adaptive (HLS)",
                 userAgent = client.userAgent,
                 headers = client.playbackHeaders,
                 subtitles = subtitleTracks,
@@ -1009,13 +1138,14 @@ class InnerTubeVideoClient(
         url: String,
         body: JsonObject,
         headers: Map<String, String>,
+        customHttp: OkHttpClient? = null,
     ): String {
         val request = Request.Builder()
             .url(url)
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
-        http.newCall(request).execute().use { response ->
+        (customHttp ?: http).newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("InnerTube HTTP ${response.code}")
             return response.body?.string() ?: throw IOException("Empty InnerTube response")
         }

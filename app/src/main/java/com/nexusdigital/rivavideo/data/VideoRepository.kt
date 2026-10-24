@@ -14,8 +14,11 @@ class VideoRepository(
     suspend fun searchVideos(query: String): List<VideoItem> =
         api.searchVideos(query)
 
-    suspend fun fetchShorts(query: String = "#shorts viral trending"): List<ShortItem> =
-        api.fetchShorts(query)
+    suspend fun searchChannels(query: String): List<ChannelSearchResult> =
+        api.searchChannels(query)
+
+    suspend fun fetchShorts(query: String = "#shorts viral trending", params: String? = null): List<ShortItem> =
+        api.fetchShorts(query, params)
 
     suspend fun fetchChannel(channelId: String): ChannelDetails =
         api.fetchChannel(channelId)
